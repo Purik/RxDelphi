@@ -1,1 +1,1 @@
-# Rx.Delphi
+# RxDelphi

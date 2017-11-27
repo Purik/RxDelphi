@@ -85,8 +85,8 @@ procedure TMap<X, Y>.OnDestSubscribe(Subscriber: IObserver<Y>);
 var
   Decorator: ISubscriber<X>;
 begin
-  // Если Source иниализирован через генератор-функцию, дадим возможность
-  // ей отработать единожды
+  // In case when Source is initialized by generator-base function manner
+  // let it to run once
   Decorator := TOnceSubscriber<X, Y>.Create(Subscriber, RoutineDecorator, nil);
   try
     Inputs[0].GetObservable.Subscribe(Decorator)

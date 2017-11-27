@@ -236,7 +236,7 @@ type
   const
     HASH_SIZE = 1024;
   strict private
-    // снижаем вероятность race conditions через Lock basket
+    // reduce probability of race conditions by Lock basket
     FBaskets: array[0..HASH_SIZE-1] of TLockBasket;
     function HashFunc(A: TObject): LongWord;
   public
@@ -277,7 +277,7 @@ function TRefRegistry.HashFunc(A: TObject): LongWord;
 var
   H: UInt64;
 begin
-  // за пример рассчета хеша взял TThreadLocalCounter.HashIndex
+  // hash calculation example: TThreadLocalCounter.HashIndex
   H := Uint64(A);
   Result := Int64Rec(H).Words[0] xor Int64Rec(H).Words[1] or
     Int64Rec(H).Words[2] xor Int64Rec(H).Words[3];
@@ -536,7 +536,7 @@ var
 begin
   for Contract in Freeze do begin
     FScheduler.Invoke(TOnCompletedAction<T>.Create(Contract));
-    // по правилам Rx контракт более не должен быть исполняем
+    // follow Rx rule: contract have to be disabled since just moment
     Contract.Unsubscribe;
   end;
 end;
@@ -547,7 +547,7 @@ var
 begin
   for Contract in Freeze do begin
     FScheduler.Invoke(TOnErrorAction<T>.Create(E, Contract));
-    // по правилам Rx контракт более не должен быть исполняем
+    // follow Rx rule: contract have to be disabled since just moment
     Contract.Unsubscribe;
   end;
 end;
@@ -556,7 +556,7 @@ procedure TObservableImpl<T>.OnNext(const Data: T);
 begin
   if Assigned(FDoOnNext) then
     FDoOnNext(Data);
-  // Должне быть переопределено потомком
+  // Descendant can override
 end;
 
 procedure TObservableImpl<T>.OnSubscribe(Subscriber: ISubscriber<T>);
@@ -1016,7 +1016,6 @@ var
   Th: TIntervalThread;
 begin
   // reintroduce parent method
-
   // clear non-active thread pool
   for I := FThreads.Count-1 downto 0 do begin
     if FThreads[I].Terminated then begin

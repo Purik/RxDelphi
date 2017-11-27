@@ -55,7 +55,7 @@ type
   end;
 
   ///	<summary>
-  ///	  Объект ошибки
+  ///   Error descriptor interface
   ///	</summary>
   IThrowable = interface
     function GetCode: Integer;
@@ -66,7 +66,7 @@ type
   end;
 
   ///	<summary>
-  ///	  Используется для создания двустороннего канала обратной связи
+  ///	  Used for controlling back-pressure mechanism
   ///	  producer-consumer
   ///	</summary>
   IProducer = interface
@@ -74,7 +74,7 @@ type
   end;
 
   ///	<summary>
-  ///	  Базовый примитив для проталкивания данных
+  ///	  Base Observer interface
   ///	</summary>
   IObserver<T> = interface
     procedure OnNext(const A: T);
@@ -127,8 +127,8 @@ type
   TOnError = reference to procedure(E: IThrowable);
 
   ///	<summary>
-  ///	  Observable - ассоциируется с потоком данных, на который можно
-  ///	  подписыатьcя, выбирая удобный планировщик
+  ///	  Observable is associated to data stream,
+  ///  developer may choice comfortable scheduler
   ///	</summary>
   IObservable<T> = interface
     function Subscribe(const OnNext: TOnNext<T>): ISubscription; overload;
@@ -177,12 +177,15 @@ type
   end;
 
   ///	<summary>
-  ///	  Абстрактный поток данных, позволяющий производить богатый набор
-  ///	  операций над потоком, уйти от парадигмы единичных данных, предоставляет
-  ///	  неявную инфраструктуру Garbage Collector для экземпляров классов, что
-  ///	  экономит время и силы при создании распределенной многопоточной
-  ///	  подсистемы.
-  ///	</summary>
+  ///  Abstract data flow, that give ability to get powerfull set of
+  ///  operations and data type transformation.
+  ///
+  ///  - Avoid single data approach, keep in mind data streams
+  ///  - implicit infrastructure, including Garbage collector for class instances
+  ///    giving ability to spend low time for developing scalable multithreading
+  ///    code
+  ///
+  /// </summary>
   TObservable<T> = record
   type
     TList = TList<T>;
@@ -198,39 +201,38 @@ type
   public
     ///	<summary>
     ///	  <para>
-    ///	    OnSubscribe срабатывает каждый раз при новой подписке.
+    ///	    OnSubscribe run on every new Subscription
     ///	  </para>
     ///	  <para>
-    ///	    Мощный метод создания Observable
+    ///	    Powerfull method of Observable creation
     ///	  </para>
     ///	</summary>
     constructor Create(const OnSubscribe: TOnSubscribe<T>); overload;
     constructor Create(const OnSubscribe: TOnSubscribe2<T>); overload;
 
     ///	<summary>
-    ///	  Cоздает Observable, который выдаст определенное заранее количество
-    ///	  значений, после чего завершится.
+    ///	  Make Observable, that raise pre-known data sequence
     ///	</summary>
     constructor Just(const Items: array of TSmartVariable<T>); overload;
 
     ///	<summary>
-    ///	  Этот Observable выдаст только событие OnCompleted и больше ничего.
+    ///	  Make Observable, that raise OnCompleted and nothing else
     ///	</summary>
     class function Empty: TObservable<T>; static;
 
     ///	<summary>
-    ///	  Defer не создает новый Observable, но позволяет определить каким
-    ///	  образом Observable будет создан при появлении подписчиков.
+    ///	  Defer don't make new observable, but give ability to
+    ///  define creation mechanism in the future, when any subscriber will appear
     ///	</summary>
     constructor Defer(const Routine: TDefer<T>);
 
     ///	<summary>
-    ///	  Этот Observable никогда ничего не выдаст.
+    ///	  Just sort of Observable will never raise anithing (usefull for testing purposes).
     ///	</summary>
     class function Never: TObservable<T>; static;
 
     ///	<summary>
-    ///	  Объединить данные из N потоков.
+    ///	  Merge N data streams
     ///	</summary>
     constructor Merge(var O1, O2: TObservable<T>); overload;
     constructor Merge(var O1, O2, O3: TObservable<T>); overload;
@@ -244,14 +246,14 @@ type
     function Subscribe(Subscriber: ISubscriber<T>): ISubscription; overload;
 
     ///	<summary>
-    ///	  Выбрать шедулер для подписчиков/выходного потока
+    ///  Set scheduler for producing data flow to subscribers - upstream scheduling
     ///	</summary>
     procedure ScheduleOn(Scheduler: IScheduler);
 
     (* Операции над последовательностями *)
 
     ///	<summary>
-    ///	  Преобразуем поток одного типа в поток другого типа.
+    ///	  Mapping data type
     ///	</summary>
     function Map<Y>(const Routine: TMap<T, Y>): TObservable<Y>; overload;
     function Map<Y>(const Routine: TMapStatic<T, Y>): TObservable<Y>; overload;
@@ -259,31 +261,28 @@ type
     function Map(const Routine: TMapStatic<T, T>): TObservable<T>; overload;
 
     ///	<summary>
-    ///	  Превратить 2 потока в поток из пар значений. Потоки должны быть
-    ///	  синхронизированы. Observable кеширует данные.
+    ///  Keep in mind: streams must be synchronized. Observable caching data
     ///	</summary>
     function Zip<Y>(var O: TObservable<Y>): TObservable<TZip<T, Y>>; overload;
 
     ///	<summary>
-    ///	  Превратить 2 потока в поток из пар значений. Скорость результирующего
-    ///	  потока равна скорости быстрого из пары.
+    ///  Speed of output stream is equal to speed of the Fastest one in couple
     ///	</summary>
     function CombineLatest<Y>(var O: TObservable<Y>): TObservable<TZip<T, Y>>; overload;
 
     ///	<summary>
-    ///	  Превратить 2 потока в поток из пар значений. Скорость результирующего
-    ///	  потока подстроивается под медленный в паре.
+    ///  Speed of output stream is equal to speed of the slowest one in couple
     ///	</summary>
     function WithLatestFrom<Y>(var Slow: TObservable<Y>): TObservable<TZip<T, Y>>; overload;
 
     ///	<summary>
-    ///	  В выходной поток уходят значения, пришедшие первыми, после чего
-    ///	  значения от других потоков игнорируются до след. итерации.
+    ///  Output stream accept items that was first, then items from
+    ///  other streams are ignored until next iteration
     ///	</summary>
     function AMB<Y>(var O: TObservable<Y>): TObservable<TZip<T, Y>>; overload;
     function AMBWith<Y>(var Slow: TObservable<Y>): TObservable<TZip<T, Y>>; overload;
     //
-    // ...others
+    // Mathematical and Aggregate Operators
     function Scan<CTX>(const Initial: TSmartVariable<CTX>; const Scan: TScanRoutine<CTX, T>): TObservable<CTX>; overload;
     function Scan(const Initial: TSmartVariable<T>; const Scan: TScanRoutine<T, T>): TObservable<T>; overload;
     function Reduce<ACCUM>(const Reduce: TReduceRoutine<ACCUM, T>): TObservable<ACCUM>; overload;
@@ -295,44 +294,43 @@ type
     // GroupBy
 
     ///	<summary>
-    ///	  Ограничить выдачу лимитированным количеством данных. По достижении
-    ///	  лимита, Observable выдаст OnCompleted. 
+    ///  Limit output stream to first Count items, then raise OnCompleted
     ///	</summary>
     function Take(Count: Integer): TObservable<T>;
 
     ///	<summary>
-    ///   Выдаст последние Count
+    ///   Raise only last Count items
     ///	</summary>
     function TakeLast(Count: Integer): TObservable<T>;
 
 
     ///	<summary>
-    ///	  Пропустить первые Count раз значения 
+    ///	  Skip first Count items
     ///	</summary>
     function Skip(Count: Integer): TObservable<T>;
 
     ///	<summary>
-    ///	  Выходной поток будет выдавать значения с задержкой Delay. Значния
-    ///	  неявно кешируются, это надо учитывать во избежание out-of-memory.
+    ///	  The output stream will produce values with delay.
+    //    Values are implicitly cached, this must be taken into account to avoid out-of-memory.
     ///	</summary>
     ///	<remarks>
-    ///	  Таймер запускается в отдельном потоке, это надо учитывать.
-    ///	  Используйте шедулер, если нужно перенаправить события в контекст
-    ///	  других потоков.
+    ///  The timer runs in a separate thread, this must be taken into account.
+    ///  Use the Sheduler if you want to redirect the events to context
+    ///  other threads.
     ///	</remarks>
     function Delay(aDelay: LongWord; aTimeUnit: LongWord = TimeUnit.SECONDS): TObservable<T>; overload;
 
     ///	<summary>
-    ///	  Филььрация
+    ///	  Filtering
     ///	</summary>
     function Filter(const Routine: TFilter<T>): TObservable<T>; overload;
     function Filter(const Routine: TFilterStatic<T>): TObservable<T>; overload;
 
     ///	<summary>
-    ///	  Превращаем единичное значение в поток. Потоки могут работать в
-    ///	  контексте разных ниток, для ограничения скорости параллельных
-    ///	  потоков, можно указать параметр MaxConcurrent, задающий величину
-    ///	  семафора для конкурентно работающих ниток. 
+    /// Transform a single value into a stream. Flows can work in
+    /// context of different threads, to limit the speed of parallel
+    /// streams, you can specify the MaxConcurrent parameter that specifies the value
+    /// semaphore for competently working threads.
     ///	</summary>
     function FlatMap<Y>(const Routine: TFlatMap<T, Y>; const MaxConcurrent: LongWord=0): TObservable<Y>; overload;
     function FlatMap<Y>(const Routine: TFlatMapStatic<T, Y>; const MaxConcurrent: LongWord=0): TObservable<Y>; overload;
@@ -340,22 +338,22 @@ type
     function FlatMapIterable(const Routine: TFlatMapIterableStatic<T>; const MaxConcurrent: LongWord=0): TObservable<T>; overload;
 
     ///	<summary>
-    ///	  Набор полезных конструкторов.
+    ///	  Usefull constructors
     ///	</summary>
     class function From(Other: IObservable<T>): TObservable<T>; overload; static;
     class function From(Collection: IEnumerable<TSmartVariable<T>>): TObservable<T>; overload; static;
     class function From(Collection: TEnumerable<TSmartVariable<T>>): TObservable<T>; overload; static;
 
     ///	<summary>
-    ///	  Вызывать напрямую OnNext, OnError, Oncompleted можно, но не
-    ///	  желательно, это нехорошая практика.
+    /// Call OnNext, OnError, Oncompleted directly, but not
+    /// it is desirable, this is a bad practice.
     ///	</summary>
     procedure OnNext(const Data: T);
     procedure OnError(E: IThrowable);
     procedure OnCompleted;
 
     ///	<summary>
-    ///	  перехватить исключение и оповестить всех подписчиков
+    ///	  Intercept an exception and notify all subscribers
     ///	</summary>
     procedure Catch;
 
@@ -395,21 +393,21 @@ type
 
     // usefull calls
     ///	<summary>
-    ///	  Запускаем интервалы. Работа счетчика происходит в отд. нитке, это надо
-    ///	  учитывать.
+    ///  Start the intervals. The counter works in the separate thread, it's necessary
+    ///   consider.
     ///	</summary>
     class function Interval(Delay: LongWord; aTimeUnit: LongWord = TimeUnit.SECONDS): TObservable<LongWord>; overload; static;
     class function IntervalDelayed(InitialDelay: LongWord; Delay: LongWord; aTimeUnit: LongWord = TimeUnit.SECONDS): TObservable<LongWord>; overload; static;
 
     ///	<summary>
-    ///	  Счетчик в Rx стиле
+    ///	  Rx-style counters
     ///	</summary>
     class function Range(Start, Stop: Integer; Step: Integer=1): TObservable<Integer>; static;
 
     ///	<summary>
-    ///	 Перехватить исключение
-    /// (предполагаем, что вызов происходит внутри блока except...end)
-    ///  и фиксируем информацию о нем в IThrowable
+    /// Catch an exception
+    /// (we assume that the call occurs inside the except ... end block)
+    /// and fix the information about it in IThrowable
     ///	</summary>
     class function CatchException: IThrowable; static;
   end;

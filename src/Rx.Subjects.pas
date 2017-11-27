@@ -1,19 +1,19 @@
 (*
-  Реализация типичных Observable.
+  Implementation of typical Observable.
 
-  Прежде чем принять решение о реализации собственного Observable,
-  загляните сюда.
+  Before deciding to implement your own Observable,
+  check here.
 
-  --- Неявная инфраструктура ---
+  --- Implicit infrastructure ---
 
-  Cуществуют принципы, которые могут быть не очевидны в коде.
-  Один из важнейших заключается в том, что ни одно событие не будет выдано
-  после того, как последовательность завершена (onError или onCompleted).
-  Реализация subject’ уважает эти принципы.
+  There are principles that may not be obvious in the code.
+  One of the most important is that no event will be issued
+  after the sequence is complete (onError or onCompleted).
+  The implementation of the subject 'respects these principles.
 
-  Безопасность не может быть гарантирована везде, где используется Rx,
-  поэтому вам лучше быть осведомленным и не нарушать этот принцип,
-  так как это может привести к неопределенным последствиям.
+  Security can not be guaranteed wherever Rx is used,
+  so you better be aware and not violate this principle,
+  as this can lead to vague consequences.
 *)
 unit Rx.Subjects;
 
@@ -23,9 +23,9 @@ uses Rx, Rx.Implementations, Generics.Collections;
 type
 
   ///	<summary>
-  ///	  Cамая простая реализация Subject. Когда данные передаются в
-  ///	  PublishSubject, он выдает их всем подписчикам, которые подписаны на
-  ///	  него в данный момент.
+  /// The simplest implementation of Subject. When data is transmitted to
+  /// PublishSubject, it issues them to all subscribers who are subscribed to
+  /// him at the moment.
   ///	</summary>
   TPublishSubject<T> = class(TObservableImpl<T>)
   public
@@ -33,10 +33,10 @@ type
   end;
 
   ///	<summary>
-  ///	  Имеет специальную возможность кэшировать все поступившие в него данные.
-  ///	  Когда у него появляется новый подписчик, последовательность выдана ему
-  ///	  начиная с начала. Все последующие поступившие данные будут выдаваться
-  ///	  подписчикам как обычно.
+  /// Has a special ability to cache all the incoming data.
+  /// When he has a new subscriber, the sequence is given to him
+  /// since the beginning. All subsequent received data will be provided
+  /// subscribers as usual.
   ///	</summary>
   TReplaySubject<T> = class(TPublishSubject<T>)
   type
@@ -54,12 +54,12 @@ type
 
     ///	<summary>
     ///	  <para>
-    ///	    Кэшировать всё подряд не всегда лучшая идея, так как
-    ///	    последовательности могут быть длинными или даже бесконечными.
+    ///     Caching everything is not always the best idea, because
+     ///    sequences can be long or even infinite.
     ///	  </para>
     ///	  <para>
-    ///	    CreateWithSize ограничивает размер буфера, а
-    ///     CreateWithTime время, которое объекты будут оставаться в кеше.
+    ///     CreateWithSize limits the size of the buffer, and
+     ///    CreateWithTime time that objects will remain in the cache.
     ///	  </para>
     ///	</summary>
     constructor CreateWithSize(Size: LongWord);
@@ -71,10 +71,10 @@ type
 
 
   ///	<summary>
-  ///	  BehaviorSubject хранит только последнее значение. Это то же самое, что
-  ///	  и ReplaySubject, но с буфером размером 1. Во время создания ему может
-  ///	  быть присвоено начальное значение, таким образом гарантируя, что данные
-  ///	  всегда будут доступны новым подписчикам.
+  ///  BehaviorSubject stores only the last value. This is the same as
+  ///  and ReplaySubject, but with a buffer of size 1. During creation, it can
+  ///  to be assigned an initial value, thus ensuring that the data
+  ///  will always be available to new subscribers.
   ///	</summary>
   TBehaviorSubject<T> = class(TPublishSubject<T>)
   strict private
@@ -89,9 +89,9 @@ type
 
 
   ///	<summary>
-  ///	  Также хранит последнее значение. Разница в том, что он не выдает данных
-  ///	  до тех пока не завершится последовательность. Его используют, когда
-  ///	  нужно выдать единое значение и тут же завершиться.
+  /// Also stores the last value. The difference is that it does not issue data
+  /// until the sequence ends. It is used when
+  /// you need to give a single value and immediately end.
   ///	</summary>
   TAsyncSubject<T> = class(TObservableImpl<T>)
   type

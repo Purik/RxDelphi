@@ -200,7 +200,8 @@ begin
   while not FInput.ShutDown do begin
     Action := FInput.PopItem;
     try
-      Action.Emit;
+      if Assigned(Action) then
+        Action.Emit;
     except
       // raise off
     end;

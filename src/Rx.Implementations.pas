@@ -875,13 +875,10 @@ var
   Contract: TContractImpl<T>;
 begin
   if Assigned(FSubscriber) then begin
-    if Supports(FScheduler, StdSchedulers.ICurrentThreadScheduler) then
-      FSubscriber.OnNext(A)
-    else begin
-      Contract := TContractImpl<T>.Create;
-      Contract.SetSubscriber(FSubscriber);
-      FScheduler.Invoke(TOnNextAction<T>.Create(A, Contract));
-    end;
+    // work through contract protect from memory leaks
+    Contract := TContractImpl<T>.Create;
+    Contract.SetSubscriber(FSubscriber);
+    FScheduler.Invoke(TOnNextAction<T>.Create(A, Contract));
   end;
 end;
 

@@ -36,14 +36,27 @@ type
     TList = TList<ITEM>;
     TSmartList = TList<TSmartVariable<ITEM>>;
   strict private
-    FList: TSmartList;
-    FListHolder: TSmartVariable<TSmartList>;
+    FList: TSmartVariable<TSmartList>;
     FAction: TCollectAction1<ITEM, VALUE>;
   protected
     function RoutineDecorator(const Data: VALUE): TList; override;
   public
     constructor Create(Source: IObservable<VALUE>;
       const Initial: TSmartList; const Action: TCollectAction1<ITEM, VALUE>);
+  end;
+
+  TCollect2Observable<KEY, ITEM, VALUE> = class(TMap<VALUE, TDictionary<KEY, ITEM>>)
+  type
+    TDict = TDictionary<KEY, ITEM>;
+    TSmartDict = TDictionary<KEY, TSmartVariable<ITEM>>;
+  strict private
+    FDict: TSmartVariable<TSmartDict>;
+    FAction: TCollectAction2<KEY, ITEM, VALUE>;
+  protected
+    function RoutineDecorator(const Data: VALUE): TDict; override;
+  public
+    constructor Create(Source: IObservable<VALUE>;
+      const Initial: TSmartDict; const Action: TCollectAction2<KEY, ITEM, VALUE>);
   end;
 
 implementation
@@ -99,7 +112,6 @@ begin
     FList := Initial
   else
     FList := TSmartList.Create;
-  FListHolder := FList;
 end;
 
 function TCollect1Observable<ITEM, VALUE>.RoutineDecorator(
@@ -109,13 +121,47 @@ var
   NewList: TSmartList;
 begin
   Result := TList.Create;
-  for I := 0 to FList.Count-1 do
-    Result.Add(FList[I]);
+  for I := 0 to FList.Get.Count-1 do
+    Result.Add(FList.Get[I]);
   FAction(Result, Data);
   NewList := TSmartList.Create;
   for I := 0 to Result.Count-1 do
     NewList.Add(Result[I]);
   FList := NewList;
+end;
+
+{ TCollect2Observable<KEY, ITEM, VALUE> }
+
+constructor TCollect2Observable<KEY, ITEM, VALUE>.Create(
+  Source: IObservable<VALUE>; const Initial: TSmartDict;
+  const Action: TCollectAction2<KEY, ITEM, VALUE>);
+begin
+  inherited Create(Source, nil);
+  FAction := Action;
+  if Assigned(Initial) then
+    FDict := Initial
+  else
+    FDict := TSmartDict.Create;
+end;
+
+function TCollect2Observable<KEY, ITEM, VALUE>.RoutineDecorator(
+  const Data: VALUE): TDict;
+var
+  I: Integer;
+  NewDict: TSmartDict;
+  KV1: TPair<KEY, TSmartVariable<ITEM>>;
+  KV2: TPair<KEY, ITEM>;
+begin
+  Result := TDict.Create;
+  for KV1 in FDict.Get do begin
+    Result.Add(KV1.Key, KV1.Value);
+  end;
+  FAction(Result, Data);
+  NewDict := TSmartDict.Create;
+  for KV2 in Result do begin
+    NewDict.Add(KV2.Key, KV2.Value);
+  end;
+  FDict := NewDict;
 end;
 
 end.

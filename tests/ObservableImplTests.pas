@@ -121,8 +121,11 @@ type
     procedure TearDown; override;
   published
     procedure Scan;
+    procedure ScanObjects;
     procedure Reduce;
     procedure ResuceZero;
+    procedure CollectWithList;
+    procedure CollectWithDict;
   end;
 
   TConstructorTests = class(TTestCase)
@@ -150,6 +153,15 @@ type
     procedure SeparateThreadScheduler;
     procedure NewThreadScheduler;
     procedure ThreadPoolScheduler;
+  end;
+
+  // Use class instance wrapper for detectong memory leaks
+  TInteger = class
+  private
+    FValue: Integer;
+  public
+    constructor Create(Value: Integer);
+    property Value: Integer read FValue write FValue;
   end;
 
 implementation
@@ -1917,7 +1929,7 @@ begin
     O.OnNext(3);
   end);
   Th.Start;
-  Sleep(3000);
+  Sleep(5000);
 
   CheckFalse(ThreadID = MainThreadID);
   Expected := 'next:' + IntToStr(ThreadID);
@@ -1943,6 +1955,149 @@ begin
 end;
 
 { TAdvancedOpsTests }
+
+procedure TAdvancedOpsTests.ScanObjects;
+var
+  O, Progress: TObservable<TInteger>;
+  OnSubscribe: TOnSubscribe<TInteger>;
+  OnNext: TOnNext<TInteger>;
+  Scan: TScanRoutine<TInteger, TInteger>;
+begin
+  Scan := procedure(var Progress: TInteger; const Cur: TInteger)
+  begin
+    Progress.Value := Progress.Value + Cur.Value;
+  end;
+
+  OnSubscribe := procedure(O: IObserver<TInteger>)
+  begin
+    O.OnNext(TInteger.Create(10));
+    O.OnNext(TInteger.Create(30));
+    O.OnNext(TInteger.Create(10));
+  end;
+
+  OnNext := procedure(const Progress: TInteger)
+  begin
+    FStream.Add(IntToStr(Progress.Value));
+  end;
+
+
+  O := TObservable<TInteger>.Create(OnSubscribe);
+  Progress := O.Scan(TInteger.Create(0), Scan);
+
+  Progress.Subscribe(OnNext);
+
+  Check(IsEqual(FStream, ['10', '40', '50']));
+end;
+
+procedure TAdvancedOpsTests.CollectWithDict;
+{var
+  O: TObservable<TInteger>;
+  CollectO: TObservable<TDictionary<Integer, TInteger>>;
+  OnSubscribe: TOnSubscribe<TInteger>;
+  OnNext: TOnNext<TDictionary<Integer, TInteger>>;
+  Collect: TCollectAction2<Integer, TInteger, TInteger>; }
+begin
+{  Collect := procedure(const Dict: TDictionary<TInteger>; const Value: TInteger)
+  var
+    Found: Boolean;
+    I: Integer;
+  begin
+    Found := False;
+    for I := 0 to List.Count-1 do
+      if List[I].Value = Value.Value then begin
+        Found := True;
+        Break
+      end;
+    if not Found then
+      List.Add(Value)
+  end;
+
+  OnSubscribe := procedure(O: IObserver<TInteger>)
+  begin
+    O.OnNext(TInteger.Create(30));
+    O.OnNext(TInteger.Create(10));
+    O.OnNext(TInteger.Create(50));
+    O.OnNext(TInteger.Create(10));
+  end;
+
+  OnNext := procedure(const Collection: TList<TInteger>)
+  var
+    I: Integer;
+    Item: TInteger;
+  begin
+    for I := 0 to Collection.Count-1 do begin
+      Item := Collection[I];
+      FStream.Add(IntToStr(Item.Value));
+    end;
+  end;
+
+
+  O := TObservable<TInteger>.Create(OnSubscribe);
+  CollectO := O.Collect<TInteger>([TInteger.Create(10)], Collect);
+
+  CollectO.Subscribe(OnNext);
+
+  Check(IsEqual(FStream, []));
+
+  O.OnCompleted;
+
+  Check(IsEqual(FStream, ['10', '30', '50'])); }
+end;
+
+procedure TAdvancedOpsTests.CollectWithList;
+var
+  O: TObservable<TInteger>;
+  CollectO: TObservable<TList<TInteger>>;
+  OnSubscribe: TOnSubscribe<TInteger>;
+  OnNext: TOnNext<TList<TInteger>>;
+  Collect: TCollectAction1<TInteger, TInteger>;
+begin
+  Collect := procedure(const List: TList<TInteger>; const Value: TInteger)
+  var
+    Found: Boolean;
+    I: Integer;
+  begin
+    Found := False;
+    for I := 0 to List.Count-1 do
+      if List[I].Value = Value.Value then begin
+        Found := True;
+        Break
+      end;
+    if not Found then
+      List.Add(Value)
+  end;
+
+  OnSubscribe := procedure(O: IObserver<TInteger>)
+  begin
+    O.OnNext(TInteger.Create(30));
+    O.OnNext(TInteger.Create(10));
+    O.OnNext(TInteger.Create(50));
+    O.OnNext(TInteger.Create(10));
+  end;
+
+  OnNext := procedure(const Collection: TList<TInteger>)
+  var
+    I: Integer;
+    Item: TInteger;
+  begin
+    for I := 0 to Collection.Count-1 do begin
+      Item := Collection[I];
+      FStream.Add(IntToStr(Item.Value));
+    end;
+  end;
+
+
+  O := TObservable<TInteger>.Create(OnSubscribe);
+  CollectO := O.Collect<TInteger>([TInteger.Create(10)], Collect);
+
+  CollectO.Subscribe(OnNext);
+
+  Check(IsEqual(FStream, []));
+
+  O.OnCompleted;
+
+  Check(IsEqual(FStream, ['10', '30', '50']));
+end;
 
 procedure TAdvancedOpsTests.Reduce;
 var
@@ -2132,6 +2287,13 @@ procedure TMergeTests.TearDown;
 begin
   inherited;
   FStream.Free;
+end;
+
+{ TInteger }
+
+constructor TInteger.Create(Value: Integer);
+begin
+  FValue := Value
 end;
 
 initialization

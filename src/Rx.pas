@@ -288,8 +288,8 @@ type
     function Reduce<ACCUM>(const Reduce: TReduceRoutine<ACCUM, T>): TObservable<ACCUM>; overload;
     function Reduce(const Reduce: TReduceRoutine<T, T>): TObservable<T>; overload;
 
-    function Collect<ITEM>(const Initial: TArray<TSmartVariable<ITEM>>; const Action: TCollectAction1<ITEM, T>): TObservable<TList<ITEM>>; overload;
-    function Collect<KEY, ITEM>(const Initial: TArray<TSmartVariable<ITEM>>; const Action: TCollectAction2<KEY, ITEM, T>): TObservable<TDictionary<KEY, ITEM>>; overload;
+    function Collect<ITEM>(const Initial: array of TSmartVariable<ITEM>; const Action: TCollectAction1<ITEM, T>): TObservable<TList<ITEM>>; overload;
+    function Collect<KEY, ITEM>(const Action: TCollectAction2<KEY, ITEM, T>): TObservable<TDictionary<KEY, ITEM>>; overload;
     function Distinct(Comparer: IComparer<T>): TObservable<T>; overload;
     // GroupBy
 
@@ -523,7 +523,7 @@ begin
 end;
 
 function TObservable<T>.Collect<ITEM>(
-  const Initial: TArray<TSmartVariable<ITEM>>;
+  const Initial: array of TSmartVariable<ITEM>;
   const Action: TCollectAction1<ITEM, T>): TObservable<TList<ITEM>>;
 var
   ItitialList: TList<TSmartVariable<Item>>;
@@ -537,10 +537,10 @@ begin
 end;
 
 function TObservable<T>.Collect<KEY, ITEM>(
-  const Initial: TArray<TSmartVariable<ITEM>>;
-  const Action: TCollectAction2<KEY, ITEM, T>): TObservable<TDictionary<KEY, ITEM>>;
+ const Action: TCollectAction2<KEY, ITEM, T>): TObservable<TDictionary<KEY, ITEM>>;
 begin
-
+  Result := TCollect2Observable<KEY, ITEM, T>.Create(GetImpl, nil, Action);
+  Result := Result.TakeLast(1);
 end;
 
 function TObservable<T>.CombineLatest<Y>(

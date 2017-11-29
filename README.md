@@ -1,5 +1,5 @@
 # RxDelphi
-### Reactive programming implementation for Delphi 
+### Reactive programming on Delphi 
 
 > Strongly recommend to read the book
 >

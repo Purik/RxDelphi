@@ -2053,6 +2053,7 @@ var
   OnSubscribe: TOnSubscribe<TInteger>;
   OnNext: TOnNext<TList<TInteger>>;
   Collect: TCollectAction1<TInteger, TInteger>;
+  OnCompleted: TOnCompleted;
 begin
   Collect := procedure(const List: TList<TInteger>; const Value: TInteger)
   var
@@ -2088,17 +2089,22 @@ begin
     end;
   end;
 
+  OnCompleted := procedure
+  begin
+    FStream.Add('completed');
+  end;
+
 
   O := TObservable<TInteger>.Create(OnSubscribe);
   CollectO := O.Collect<TInteger>([TInteger.Create(10)], Collect);
 
-  CollectO.Subscribe(OnNext);
+  CollectO.Subscribe(OnNext, OnCompleted);
 
   Check(IsEqual(FStream, []));
 
   O.OnCompleted;
 
-  Check(IsEqual(FStream, ['10', '30', '50']));
+  Check(IsEqual(FStream, ['10', '30', '50', 'completed']));
 end;
 
 procedure TAdvancedOpsTests.Reduce;

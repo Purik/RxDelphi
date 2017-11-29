@@ -1990,58 +1990,60 @@ begin
 end;
 
 procedure TAdvancedOpsTests.CollectWithDict;
-{var
+var
   O: TObservable<TInteger>;
   CollectO: TObservable<TDictionary<Integer, TInteger>>;
   OnSubscribe: TOnSubscribe<TInteger>;
   OnNext: TOnNext<TDictionary<Integer, TInteger>>;
-  Collect: TCollectAction2<Integer, TInteger, TInteger>; }
+  Collect: TCollectAction2<Integer, TInteger, TInteger>;
+  OnCompleted: TOnCompleted;
 begin
-{  Collect := procedure(const Dict: TDictionary<TInteger>; const Value: TInteger)
+  Collect := procedure(const Dict: TDictionary<Integer, TInteger>; const Value: TInteger)
   var
-    Found: Boolean;
-    I: Integer;
+    Key: Integer;
   begin
-    Found := False;
-    for I := 0 to List.Count-1 do
-      if List[I].Value = Value.Value then begin
-        Found := True;
-        Break
-      end;
-    if not Found then
-      List.Add(Value)
+    Key := Value.Value;
+    if Dict.ContainsKey(Key) then
+      Dict[Key].Value := Dict[Key].Value + 1
+    else
+      Dict.Add(Key, TInteger.Create(1));
   end;
 
   OnSubscribe := procedure(O: IObserver<TInteger>)
   begin
-    O.OnNext(TInteger.Create(30));
-    O.OnNext(TInteger.Create(10));
-    O.OnNext(TInteger.Create(50));
-    O.OnNext(TInteger.Create(10));
+    O.OnNext(TInteger.Create(1));
+    O.OnNext(TInteger.Create(2));
+    O.OnNext(TInteger.Create(2));
+    O.OnNext(TInteger.Create(3));
+    O.OnNext(TInteger.Create(1));
+    O.OnNext(TInteger.Create(1));
   end;
 
-  OnNext := procedure(const Collection: TList<TInteger>)
+  OnNext := procedure(const Dict: TDictionary<Integer, TInteger>)
   var
-    I: Integer;
-    Item: TInteger;
+    KV: TPair<Integer, TInteger>;
   begin
-    for I := 0 to Collection.Count-1 do begin
-      Item := Collection[I];
-      FStream.Add(IntToStr(Item.Value));
+    for KV in Dict do begin
+      FStream.Add(Format('%d:%d', [KV.Key, KV.Value.Value]))
     end;
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add('completed');
   end;
 
 
   O := TObservable<TInteger>.Create(OnSubscribe);
-  CollectO := O.Collect<TInteger>([TInteger.Create(10)], Collect);
+  CollectO := O.Collect<Integer, TInteger>(Collect);
 
-  CollectO.Subscribe(OnNext);
+  CollectO.Subscribe(OnNext, OnCompleted);
 
   Check(IsEqual(FStream, []));
 
   O.OnCompleted;
 
-  Check(IsEqual(FStream, ['10', '30', '50'])); }
+  Check(IsEqual(FStream, ['3:1', '2:2', '1:3', 'completed']));
 end;
 
 procedure TAdvancedOpsTests.CollectWithList;

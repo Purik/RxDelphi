@@ -31,7 +31,7 @@ type
   end;
 
   TOnceSubscriber<X, Y> = class(TInterfacedObject, ISubscriber<X>)
-  strict private
+  protected
     FRoutine: Rx.TMap<X, Y>;
     FRoutineStatic: Rx.TMapStatic<X, Y>;
     FSource: IObserver<Y>;
@@ -39,7 +39,7 @@ type
     constructor Create(Source: IObserver<Y>;
       const Routine: Rx.TMap<X, Y>; const RoutineStatic: Rx.TMapStatic<X, Y>);
     destructor Destroy; override;
-    procedure OnNext(const A: X);
+    procedure OnNext(const A: X); dynamic;
     procedure OnError(E: IThrowable);
     procedure OnCompleted;
     procedure Unsubscribe;

@@ -92,6 +92,7 @@ type
     constructor Create(const A: T);
     class operator Implicit(A: TSmartVariable<T>): T;
     class operator Implicit(A: T): TSmartVariable<T>;
+    class operator Equal(A, B: TSmartVariable<T>): Boolean;
     function Get: T;
     procedure Clear;
   end;
@@ -291,7 +292,8 @@ type
     function Collect<ITEM>(const Initial: array of TSmartVariable<ITEM>; const Action: TCollectAction1<ITEM, T>): TObservable<TList<ITEM>>; overload;
     function Collect<KEY, ITEM>(const Action: TCollectAction2<KEY, ITEM, T>): TObservable<TDictionary<KEY, ITEM>>; overload;
     function Distinct(Comparer: IComparer<T>): TObservable<T>; overload;
-    // GroupBy
+    function GroupBy<Y>(const Mapper: TMap<T, Y>): TObservable<IObservable<Y>>; overload;
+    function GroupBy<Y>(const Mapper: TMapStatic<T, Y>): TObservable<IObservable<Y>>; overload;
 
     ///	<summary>
     ///  Limit output stream to first Count items, then raise OnCompleted
@@ -689,6 +691,18 @@ begin
   Result := Impl;
 end;
 
+function TObservable<T>.GroupBy<Y>(
+  const Mapper: TMapStatic<T, Y>): TObservable<IObservable<Y>>;
+begin
+  Result := TGroupByObservable<T, Y>.CreateStatic(GetImpl, Mapper)
+end;
+
+function TObservable<T>.GroupBy<Y>(
+  const Mapper: TMap<T, Y>): TObservable<IObservable<Y>>;
+begin
+  Result := TGroupByObservable<T, Y>.Create(GetImpl, Mapper)
+end;
+
 class operator TObservable<T>.Implicit(A: IObservable<T>): TObservable<T>;
 begin
   Result.Impl := A;
@@ -910,6 +924,14 @@ end;
 constructor TSmartVariable<T>.Create(const A: T);
 begin
   Self := A;
+end;
+
+class operator TSmartVariable<T>.Equal(A, B: TSmartVariable<T>): Boolean;
+var
+  Comp: IComparer<T>;
+begin
+  Comp := TComparer<T>.Default;
+  Result := Comp.Compare(A.FValue, B.FValue) = 0
 end;
 
 function TSmartVariable<T>.Get: T;

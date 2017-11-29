@@ -2,7 +2,7 @@ unit Rx.Observable.AdvancedOps;
 
 interface
 uses Rx, Rx.Implementations, Rx.Subjects, Rx.Observable.Map,
-  Generics.Collections, Generics.Defaults;
+  Generics.Collections, Generics.Defaults, SyncObjs;
 
 
 type
@@ -57,6 +57,44 @@ type
   public
     constructor Create(Source: IObservable<VALUE>;
       const Initial: TSmartDict; const Action: TCollectAction2<KEY, ITEM, VALUE>);
+  end;
+
+  TGroupByObservable<X, Y> = class(TObservableImpl<X>, IObservable<IObservable<Y>>)
+  type
+    TDict = TDictionary<TSmartVariable<Y>, IObservable<Y>>;
+  strict private
+    FHashMap: TDict;
+    FMapper: Rx.TMap<X, Y>;
+    FMapperStatic: Rx.TMapStatic<X, Y>;
+    FDest: TPublishSubject<IObservable<Y>>;
+    FLock: TCriticalSection;
+    procedure OnDestSubscribe(Subscriber: IObserver<IObservable<Y>>);
+    procedure OnDestSubscribe2(Subscriber: IObserver<Y>);
+  protected
+    property HashMap: TDict read FHashMap;
+    procedure Lock;
+    procedure Unlock;
+    function RoutineDecorator(const Data: X): IObservable<Y>; dynamic;
+  public
+    constructor Create(Source: IObservable<X>; const Mapper: Rx.TMap<X, Y>);
+    constructor CreateStatic(Source: IObservable<X>; const Mapper: Rx.TMapStatic<X, Y>);
+    destructor Destroy; override;
+    function Subscribe(const OnNext: TOnNext<IObservable<Y>>): ISubscription; overload;
+    function Subscribe(const OnNext: TOnNext<IObservable<Y>>; const OnError: TOnError): ISubscription; overload;
+    function Subscribe(const OnNext: TOnNext<IObservable<Y>>; const OnError: TOnError; const OnCompleted: TOnCompleted): ISubscription; overload;
+    function Subscribe(const OnNext: TOnNext<IObservable<Y>>; const OnCompleted: TOnCompleted): ISubscription; overload;
+    function Subscribe(const OnError: TOnError): ISubscription; overload;
+    function Subscribe(const OnCompleted: TOnCompleted): ISubscription; overload;
+    function Subscribe(A: ISubscriber<IObservable<Y>>): ISubscription; overload;
+    procedure OnNext(const Data: IObservable<Y>); reintroduce; overload;
+    procedure OnNext(const Data: X); overload; override;
+    procedure OnError(E: IThrowable); override;
+    procedure OnCompleted; override;
+  end;
+
+  TOnceGroupSubscriber<X, Y> = class(TOnceSubscriber<X, Y>)
+  public
+    procedure OnNext(const A: X); override;
   end;
 
 implementation
@@ -162,6 +200,182 @@ begin
     NewDict.Add(KV2.Key, KV2.Value);
   end;
   FDict := NewDict;
+end;
+
+{ TGroupByObservable<X, Y> }
+
+constructor TGroupByObservable<X, Y>.Create(Source: IObservable<X>;
+  const Mapper: Rx.TMap<X, Y>);
+begin
+  inherited Create;
+  FHashMap := TDict.Create;
+  FDest := TPublishSubject<IObservable<Y>>.Create(OnDestSubscribe);
+  inherited Merge(Source);
+  FMapper := Mapper;
+  FLock := TCriticalSection.Create;
+end;
+
+constructor TGroupByObservable<X, Y>.CreateStatic(Source: IObservable<X>;
+  const Mapper: Rx.TMapStatic<X, Y>);
+begin
+  inherited Create;
+  FHashMap := TDict.Create;
+  FDest := TPublishSubject<IObservable<Y>>.Create(OnDestSubscribe);
+  inherited Merge(Source);
+  FMapperStatic := Mapper;
+  FLock := TCriticalSection.Create;
+end;
+
+destructor TGroupByObservable<X, Y>.Destroy;
+begin
+  FHashMap.Free;
+  FDest.Free;
+  FLock.Free;
+  inherited;
+end;
+
+procedure TGroupByObservable<X, Y>.Lock;
+begin
+  FLock.Acquire
+end;
+
+procedure TGroupByObservable<X, Y>.OnCompleted;
+begin
+  FDest.OnCompleted;
+end;
+
+procedure TGroupByObservable<X, Y>.OnDestSubscribe2(Subscriber: IObserver<Y>);
+var
+  Decorator: ISubscriber<X>;
+begin
+  // In case when Source is initialized by generator-base function manner
+  // let it to run once
+  Decorator := TOnceGroupSubscriber<X, Y>.Create(Subscriber, FMapper, FMapperStatic);
+  try
+    Inputs[0].GetObservable.Subscribe(Decorator)
+  finally
+    Decorator.Unsubscribe
+  end;
+end;
+
+procedure TGroupByObservable<X, Y>.OnDestSubscribe(
+  Subscriber: IObserver<IObservable<Y>>);
+var
+  Decorator: ISubscriber<X>;
+begin
+  // In case when Source is initialized by generator-base function manner
+  // let it to run once
+  Decorator := TOnceGroupSubscriber<X, IObservable<Y>>.Create(Subscriber, RoutineDecorator, nil);
+  try
+    Inputs[0].GetObservable.Subscribe(Decorator)
+  finally
+    Decorator.Unsubscribe
+  end;
+end;
+
+procedure TGroupByObservable<X, Y>.OnError(E: IThrowable);
+begin
+  FDest.OnError(E);
+end;
+
+procedure TGroupByObservable<X, Y>.OnNext(const Data: X);
+begin
+  FDest.OnNext(RoutineDecorator(Data))
+end;
+
+function TGroupByObservable<X, Y>.RoutineDecorator(
+  const Data: X): IObservable<Y>;
+var
+  Key: TSmartVariable<Y>;
+begin
+
+  if Assigned(FMapper) then
+    Key := FMapper(Data)
+  else
+    Key := FMapperStatic(Data);
+
+  Lock;
+  try
+    if FHashMap.ContainsKey(Key) then
+      Result := nil
+    else begin
+      Result := TPublishSubject<Y>.Create(OnDestSubscribe2);
+      FHashMap.Add(Key, Result);
+    end
+  finally
+    Unlock
+  end;
+end;
+
+procedure TGroupByObservable<X, Y>.OnNext(const Data: IObservable<Y>);
+begin
+  FDest.OnNext(Data)
+end;
+
+function TGroupByObservable<X, Y>.Subscribe(
+  const OnNext: TOnNext<IObservable<Y>>;
+  const OnError: TOnError): ISubscription;
+begin
+  Result := FDest.Subscribe(OnNext, OnError);
+end;
+
+function TGroupByObservable<X, Y>.Subscribe(
+  const OnNext: TOnNext<IObservable<Y>>): ISubscription;
+begin
+  Result := FDest.Subscribe(OnNext);
+end;
+
+function TGroupByObservable<X, Y>.Subscribe(
+  const OnCompleted: TOnCompleted): ISubscription;
+begin
+  Result := FDest.Subscribe(OnCompleted);
+end;
+
+function TGroupByObservable<X, Y>.Subscribe(
+  A: ISubscriber<IObservable<Y>>): ISubscription;
+begin
+  Result := FDest.Subscribe(A);
+end;
+
+procedure TGroupByObservable<X, Y>.Unlock;
+begin
+  FLock.Release
+end;
+
+function TGroupByObservable<X, Y>.Subscribe(
+  const OnError: TOnError): ISubscription;
+begin
+  Result := FDest.Subscribe(OnError);
+end;
+
+function TGroupByObservable<X, Y>.Subscribe(
+  const OnNext: TOnNext<IObservable<Y>>; const OnError: TOnError;
+  const OnCompleted: TOnCompleted): ISubscription;
+begin
+  Result := FDest.Subscribe(OnNext, OnError, OnCompleted);
+end;
+
+function TGroupByObservable<X, Y>.Subscribe(
+  const OnNext: TOnNext<IObservable<Y>>;
+  const OnCompleted: TOnCompleted): ISubscription;
+begin
+  Result := FDest.Subscribe(OnNext, OnCompleted);
+end;
+
+{ TOnceGroupSubscriber<X, Y> }
+
+procedure TOnceGroupSubscriber<X, Y>.OnNext(const A: X);
+var
+  Ret: Y;
+  O: IUnknown absolute Ret;
+begin
+  if not IsUnsubscribed then
+    if Assigned(FRoutine) then
+      Ret := FRoutine(A)
+    else
+      Ret := FRoutineStatic(A);
+  if Assigned(O) then
+    FSource.OnNext(Ret)
 end;
 
 end.

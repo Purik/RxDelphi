@@ -1,0 +1,53 @@
+package RxDelphi;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO ON}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$DESCRIPTION 'RxDelphi'}
+{$RUNONLY}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl;
+
+contains
+  Rx.Fibers in '..\src\Rx.Fibers.pas',
+  Rx.Implementations in '..\src\Rx.Implementations.pas',
+  Rx.Observable.AdvancedOps in '..\src\Rx.Observable.AdvancedOps.pas',
+  Rx.Observable.Defer in '..\src\Rx.Observable.Defer.pas',
+  Rx.Observable.Delay in '..\src\Rx.Observable.Delay.pas',
+  Rx.Observable.Empty in '..\src\Rx.Observable.Empty.pas',
+  Rx.Observable.Filter in '..\src\Rx.Observable.Filter.pas',
+  Rx.Observable.FlatMap in '..\src\Rx.Observable.FlatMap.pas',
+  Rx.Observable.Just in '..\src\Rx.Observable.Just.pas',
+  Rx.Observable.Map in '..\src\Rx.Observable.Map.pas',
+  Rx.Observable.Never in '..\src\Rx.Observable.Never.pas',
+  Rx.Observable.Take in '..\src\Rx.Observable.Take.pas',
+  Rx.Observable.Zip in '..\src\Rx.Observable.Zip.pas',
+  Rx in '..\src\Rx.pas',
+  Rx.Schedulers in '..\src\Rx.Schedulers.pas',
+  Rx.Subjects in '..\src\Rx.Subjects.pas';
+
+end.

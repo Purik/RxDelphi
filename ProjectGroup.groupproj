@@ -6,6 +6,9 @@
         <Projects Include="tests\Tests.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="bpl\RxDelphi.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -23,14 +26,23 @@
     <Target Name="Tests:Make">
         <MSBuild Projects="tests\Tests.dproj" Targets="Make"/>
     </Target>
+    <Target Name="RxDelphi">
+        <MSBuild Projects="bpl\RxDelphi.dproj"/>
+    </Target>
+    <Target Name="RxDelphi:Clean">
+        <MSBuild Projects="bpl\RxDelphi.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="RxDelphi:Make">
+        <MSBuild Projects="bpl\RxDelphi.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="Tests"/>
+        <CallTarget Targets="Tests;RxDelphi"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="Tests:Clean"/>
+        <CallTarget Targets="Tests:Clean;RxDelphi:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="Tests:Make"/>
+        <CallTarget Targets="Tests:Make;RxDelphi:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

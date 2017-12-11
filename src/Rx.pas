@@ -292,8 +292,6 @@ type
     function Collect<ITEM>(const Initial: array of TSmartVariable<ITEM>; const Action: TCollectAction1<ITEM, T>): TObservable<TList<ITEM>>; overload;
     function Collect<KEY, ITEM>(const Action: TCollectAction2<KEY, ITEM, T>): TObservable<TDictionary<KEY, ITEM>>; overload;
     function Distinct(Comparer: IComparer<T>): TObservable<T>; overload;
-    function GroupBy<Y>(const Mapper: TMap<T, Y>): TObservable<IObservable<Y>>; overload;
-    function GroupBy<Y>(const Mapper: TMapStatic<T, Y>): TObservable<IObservable<Y>>; overload;
 
     ///	<summary>
     ///  Limit output stream to first Count items, then raise OnCompleted
@@ -689,18 +687,6 @@ begin
   if not Assigned(Impl) then
     Impl := TPublishSubject<T>.Create;
   Result := Impl;
-end;
-
-function TObservable<T>.GroupBy<Y>(
-  const Mapper: TMapStatic<T, Y>): TObservable<IObservable<Y>>;
-begin
-  Result := TGroupByObservable<T, Y>.CreateStatic(GetImpl, Mapper)
-end;
-
-function TObservable<T>.GroupBy<Y>(
-  const Mapper: TMap<T, Y>): TObservable<IObservable<Y>>;
-begin
-  Result := TGroupByObservable<T, Y>.Create(GetImpl, Mapper)
 end;
 
 class operator TObservable<T>.Implicit(A: IObservable<T>): TObservable<T>;

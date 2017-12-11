@@ -31,8 +31,7 @@ type
     procedure Sane;
     procedure Clear;
     procedure Visibility;
-    procedure GarbageCollection1;
-    procedure GarbageCollection2;
+    procedure GarbageCollection;
   end;
 
   TSubscriptionTests = class(TTestCase)
@@ -165,7 +164,7 @@ type
   end;
 
 implementation
-uses SyncObjs;
+uses SyncObjs, Rx.Fibers;
 
 procedure Setup(L: TList<string>; const Collection: array of string);
 var
@@ -417,8 +416,48 @@ end;
 { TOperationsTests }
 
 procedure TOperationsTests.AMB1;
+var
+  A: TObservable<string>;
+  B: TObservable<Integer>;
+  AMB: TObservable<TZip<string, Integer>>;
+  OnSubscribeA: TOnSubscribe<string>;
+  OnSubscribeB: TOnSubscribe<Integer>;
+  OnNextAMB: TOnNext<TZip<string, Integer>>;
+  OnCompleted: TOnCompleted;
 begin
+  // A is more FAST than B
 
+  OnSubscribeA := procedure(O: IObserver<string>)
+  begin
+    O.OnNext('A');
+    O.OnNext('B');
+    O.OnNext('C');
+  end;
+
+  OnSubscribeB := procedure(O: IObserver<Integer>)
+  begin
+    O.OnNext(1);
+    O.OnNext(2);
+    O.OnNext(3);
+  end;
+
+  OnNextAMB := procedure(const Data: TZip<string, Integer>)
+  begin
+    FStream.Add(Format('%s:%d', [Data.A, Data.B]));
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add('completed');
+  end;
+
+  A := TObservable<string>.Create(OnSubscribeA);
+  B := TObservable<Integer>.Create(OnSubscribeB);
+  AMB := A.AMB<Integer>(B);
+
+  AMB.Subscribe(OnNextAMB, OnCompleted);
+
+  Check(IsEqual(FStream, ['1', '2']));
 end;
 
 procedure TOperationsTests.AMBWith;
@@ -1411,7 +1450,7 @@ begin
   CheckEquals(1, FLog.Count);
 end;
 
-procedure TSmartVariableTests.GarbageCollection1;
+procedure TSmartVariableTests.GarbageCollection;
 var
   O: TObservable<TLoggingObj>;
   Logger: TThreadProcedure;
@@ -1435,11 +1474,6 @@ begin
 
   CheckEquals(3, FStream.Count);
   CheckEquals(3, FLog.Count);
-end;
-
-procedure TSmartVariableTests.GarbageCollection2;
-begin
-
 end;
 
 procedure TSmartVariableTests.Sane;

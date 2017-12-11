@@ -608,8 +608,10 @@ end;
 
 function TAMBWithStrategy<X, Y>.OnNext(const Left: X): TZip<X, Y>;
 begin
-  FLeftExists := True;
-  FLeft := Left;
+  if not FLeftExists then begin
+    FLeftExists := True;
+    FLeft := Left;
+  end;
   if FLeftExists and FRightExists and (FFastStream = fsB) then begin
     Result := TZip<X, Y>.Create(FLeft, FRight);
     AfterOnNext;
@@ -625,8 +627,10 @@ end;
 
 function TAMBWithStrategy<X, Y>.OnNext(const Right: Y): TZip<X, Y>;
 begin
-  FRightExists := True;
-  FRight := Right;
+  if not FRightExists then begin
+    FRightExists := True;
+    FRight := Right;
+  end;
   if FLeftExists and FRightExists and (FFastStream = fsA) then begin
     Result := TZip<X, Y>.Create(FLeft, FRight);
     AfterOnNext;
@@ -638,8 +642,10 @@ end;
   { TAMBStrategy<X, Y> }
 function TAMBStrategy<X, Y>.OnNext(const Left: X): TZip<X, Y>;
 begin
-  FLeftExists := True;
-  FLeft := Left;
+  if not FLeftExists then begin
+    FLeftExists := True;
+    FLeft := Left;
+  end;
   if FLeftExists and FRightExists then begin
     Result := TZip<X, Y>.Create(FLeft, FRight);
     FLeftExists := False;
@@ -651,8 +657,10 @@ end;
 
 function TAMBStrategy<X, Y>.OnNext(const Right: Y): TZip<X, Y>;
 begin
-  FRightExists := True;
-  FRight := Right;
+  if not FRightExists then begin
+    FRightExists := True;
+    FRight := Right;
+  end;
   if FLeftExists and FRightExists then begin
     Result := TZip<X, Y>.Create(FLeft, FRight);
     FLeftExists := False;

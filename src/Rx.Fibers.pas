@@ -39,6 +39,9 @@ type
     constructor Create(const Routine: TFiberRoutine);
   end;
 
+// used only for debugging!!!
+procedure Yield;
+
 implementation
 
 threadvar
@@ -113,6 +116,11 @@ end;
 procedure TFiber.Execute;
 begin
   FRoutine(Self)
+end;
+
+procedure Yield;
+begin
+  SwitchToFiber(CurThreadAsFiber);
 end;
 
 end.

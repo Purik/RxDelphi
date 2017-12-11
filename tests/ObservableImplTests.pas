@@ -102,7 +102,6 @@ type
     procedure CombineLatest1;
     procedure WithLatestFrom1;
     procedure AMB1;
-    procedure AMBWith;
     procedure Take;
     procedure Skip;
     procedure Delay;
@@ -426,18 +425,29 @@ var
   OnCompleted: TOnCompleted;
 begin
   // A is more FAST than B
+  // emulate faster-lower through call context yielding (fibers api)
 
   OnSubscribeA := procedure(O: IObserver<string>)
   begin
     O.OnNext('A');
     O.OnNext('B');
     O.OnNext('C');
+    O.OnNext('D');
+    O.OnNext('E');
+    O.OnNext('F');
+    O.OnNext('G');
+    O.OnNext('H');
+    O.OnNext('I');
+    O.OnCompleted;
   end;
 
   OnSubscribeB := procedure(O: IObserver<Integer>)
   begin
+    Yield;
     O.OnNext(1);
+    Yield;
     O.OnNext(2);
+    Yield;
     O.OnNext(3);
   end;
 
@@ -457,12 +467,7 @@ begin
 
   AMB.Subscribe(OnNextAMB, OnCompleted);
 
-  Check(IsEqual(FStream, ['1', '2']));
-end;
-
-procedure TOperationsTests.AMBWith;
-begin
-
+  Check(IsEqual(FStream, ['A:1', 'C:2', 'E:3', 'completed']));
 end;
 
 procedure TOperationsTests.CombineLatest1;

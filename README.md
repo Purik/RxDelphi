@@ -1,4 +1,5 @@
-# RxDelphi
+# Reactive extension for Delphi
+
 ### Reactive programming on Delphi 
 
 > Strongly recommend to read the book

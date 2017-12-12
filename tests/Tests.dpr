@@ -17,6 +17,7 @@ program Tests;
 uses
   DUnitTestRunner,
   ObservableImplTests in 'ObservableImplTests.pas',
+  SubjectsTests in 'SubjectsTests.pas',
   Rx.Fibers in '..\src\Rx.Fibers.pas',
   Rx.Implementations in '..\src\Rx.Implementations.pas',
   Rx.Observable.AdvancedOps in '..\src\Rx.Observable.AdvancedOps.pas',
@@ -32,7 +33,8 @@ uses
   Rx.Observable.Zip in '..\src\Rx.Observable.Zip.pas',
   Rx in '..\src\Rx.pas',
   Rx.Schedulers in '..\src\Rx.Schedulers.pas',
-  Rx.Subjects in '..\src\Rx.Subjects.pas';
+  Rx.Subjects in '..\src\Rx.Subjects.pas',
+  BaseTests in 'BaseTests.pas';
 
 {$R *.RES}
 

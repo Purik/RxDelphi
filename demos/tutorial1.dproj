@@ -1,14 +1,14 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{618C0E3C-FAEF-40BA-87BC-2BABA34483F8}</ProjectGuid>
+        <ProjectGuid>{D8D07E1E-A06E-4B44-A78C-55F02124A03D}</ProjectGuid>
         <ProjectVersion>14.3</ProjectVersion>
         <FrameworkType>None</FrameworkType>
+        <MainSource>tutorial1.dpr</MainSource>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>1</TargetedPlatforms>
         <AppType>Console</AppType>
-        <MainSource>Tests.dpr</MainSource>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
         <Base>true</Base>
@@ -45,11 +45,11 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
-        <DCC_UnitSearchPath>$(BDS)\Source\DUnit\src;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
-        <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
-        <DCC_Define>_CONSOLE_TESTRUNNER;$(DCC_Define)</DCC_Define>
-        <DCC_DcuOutput>.</DCC_DcuOutput>
-        <DCC_ExeOutput>.\$(Platform)\$(Config)</DCC_ExeOutput>
+        <UsePackages>true</UsePackages>
+        <DCC_UsePackage>RxDelphi1;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;$(DCC_Namespace)</DCC_Namespace>
+        <DCC_DcuOutput>$(Platform)\$(Config)</DCC_DcuOutput>
+        <DCC_ExeOutput>$(Platform)\$(Config)</DCC_ExeOutput>
         <DCC_E>false</DCC_E>
         <DCC_N>false</DCC_N>
         <DCC_S>false</DCC_S>
@@ -60,13 +60,12 @@
         <DCC_UsePackage>bindcompfmx;fmx;rtl;dbrtl;DbxClientDriver;IndySystem;bindcomp;inetdb;DBXInterBaseDriver;DataSnapCommon;xmlrtl;ibxpress;DbxCommonDriver;IndyProtocols;dbxcds;DBXMySQLDriver;bindengine;soaprtl;bindcompdbx;CustomIPTransport;dsnap;IndyIPServer;fmxase;IndyCore;IndyIPCommon;inet;fmxobj;inetdbxpress;fmxdae;dbexpress;IndyIPClient;$(DCC_UsePackage)</DCC_UsePackage>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
-        <VerInfo_Locale>1033</VerInfo_Locale>
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;$(DCC_Namespace)</DCC_Namespace>
         <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
-        <DCC_UsePackage>TeeGL917;FMXTee917;TeeTree2D17Tee9;AdvComp;TeeMaker117;bindcompfmx;vcldbx;RaizeComponentsVclDb;fmx;rtl;dbrtl;DbxClientDriver;IndySystem;RaizeComponentsVcl;bindcomp;inetdb;vclib;inetdbbde;DBXInterBaseDriver;DataSnapCommon;TeePro917;TeeImport917;xmlrtl;svnui;ibxpress;DbxCommonDriver;vclimg;IndyProtocols;dbxcds;DBXMySQLDriver;MetropolisUILiveTile;vclactnband;bindengine;vcldb;soaprtl;bindcompdbx;vcldsnap;bindcompvcl;TeeUI917;FmxTeeUI917;vclie;vcltouch;FMXTeeImport917;websnap;CustomIPTransport;vclribbon;VclSmp;dsnap;IndyIPServer;TeeDB917;Intraweb;fmxase;vcl;IndyCore;TeeLanguage917;IndyIPCommon;CloudService;CodeSiteExpressPkg;dsnapcon;inet;fmxobj;AdvTeeChart;TeeWorld917;vclx;inetdbxpress;webdsnap;svn;SimpleGraphComponent;FMXTeePro917;fmxdae;TeeImage917;bdertl;FMXTeeLanguage917;Tee917;dbexpress;adortl;FMXTeeDB917;IndyIPClient;$(DCC_UsePackage)</DCC_UsePackage>
+        <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
-        <DCC_UsePackage>AdvComp;bindcompfmx;RaizeComponentsVclDb;fmx;rtl;dbrtl;DbxClientDriver;IndySystem;RaizeComponentsVcl;bindcomp;inetdb;vclib;DBXInterBaseDriver;DataSnapCommon;xmlrtl;ibxpress;DbxCommonDriver;vclimg;IndyProtocols;dbxcds;DBXMySQLDriver;vclactnband;bindengine;vcldb;soaprtl;bindcompdbx;vcldsnap;bindcompvcl;vclie;vcltouch;websnap;CustomIPTransport;VclSmp;dsnap;IndyIPServer;fmxase;vcl;IndyCore;IndyIPCommon;dsnapcon;inet;fmxobj;AdvTeeChart;vclx;inetdbxpress;webdsnap;fmxdae;dbexpress;adortl;IndyIPClient;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>bindcompfmx;RaizeComponentsVclDb;fmx;rtl;dbrtl;DbxClientDriver;IndySystem;RaizeComponentsVcl;bindcomp;inetdb;vclib;DBXInterBaseDriver;DataSnapCommon;xmlrtl;ibxpress;DbxCommonDriver;vclimg;IndyProtocols;dbxcds;DBXMySQLDriver;vclactnband;bindengine;vcldb;soaprtl;bindcompdbx;vcldsnap;bindcompvcl;vclie;vcltouch;websnap;CustomIPTransport;VclSmp;dsnap;IndyIPServer;fmxase;vcl;IndyCore;IndyIPCommon;dsnapcon;inet;fmxobj;vclx;inetdbxpress;webdsnap;fmxdae;dbexpress;adortl;IndyIPClient;$(DCC_UsePackage)</DCC_UsePackage>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
@@ -77,6 +76,10 @@
         <DCC_RemoteDebug>true</DCC_RemoteDebug>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
+        <DCC_UsePackage>RxDelphi;$(DCC_UsePackage)</DCC_UsePackage>
+        <UsePackages>false</UsePackages>
+        <Manifest_File>None</Manifest_File>
+        <VerInfo_Locale>1033</VerInfo_Locale>
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
@@ -89,25 +92,6 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="ObservableImplTests.pas"/>
-        <DCCReference Include="SubjectsTests.pas"/>
-        <DCCReference Include="..\src\Rx.Fibers.pas"/>
-        <DCCReference Include="..\src\Rx.Implementations.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.AdvancedOps.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.Defer.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.Delay.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.Empty.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.Filter.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.FlatMap.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.Just.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.Map.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.Never.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.Take.pas"/>
-        <DCCReference Include="..\src\Rx.Observable.Zip.pas"/>
-        <DCCReference Include="..\src\Rx.pas"/>
-        <DCCReference Include="..\src\Rx.Schedulers.pas"/>
-        <DCCReference Include="..\src\Rx.Subjects.pas"/>
-        <DCCReference Include="BaseTests.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -161,8 +145,16 @@
                     <VersionInfoKeys Name="CFBundleExecutable"/>
                 </VersionInfoKeys>
                 <Source>
-                    <Source Name="MainSource">Tests.dpr</Source>
+                    <Source Name="MainSource">tutorial1.dpr</Source>
                 </Source>
+                <Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\bcboffice2k170.bpl">Embarcadero C++Builder Office 2000 Servers Package</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\bcbofficexp170.bpl">Embarcadero C++Builder Office XP Servers Package</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k170.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp170.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclFMXtee9170.bpl">TeeChart Lite FMX Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcltee9170.bpl">TeeChart Standard VCL Components</Excluded_Packages>
+                </Excluded_Packages>
             </Delphi.Personality>
             <Deployment/>
             <Platforms>
@@ -170,12 +162,6 @@
                 <Platform value="Win32">True</Platform>
                 <Platform value="Win64">False</Platform>
             </Platforms>
-            <UnitTesting>
-                <TestFramework>DUnit / Delphi Win32</TestFramework>
-                <TestRunner>GUI</TestRunner>
-                <SourceProjectName>E:\dfPost\dfPostXE\bin\_rtpstart50.dproj</SourceProjectName>
-                <TestProjectName/>
-            </UnitTesting>
         </BorlandProject>
         <ProjectFileVersion>12</ProjectFileVersion>
     </ProjectExtensions>

@@ -65,6 +65,8 @@ type
     ///	  <para>
     ///     CreateWithSize limits the size of the buffer, and discards the oldest item
      ///    CreateWithTime time that objects will remain in the cache.
+     ///     internally tags each observed item with a timestamp value supplied by the
+     ///     scheduler and keeps only those whose age is less than the supplied time value
     ///	  </para>
     ///	</summary>
     constructor CreateWithSize(Size: LongWord);

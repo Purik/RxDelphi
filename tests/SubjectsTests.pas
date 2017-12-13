@@ -21,7 +21,6 @@ type
     procedure ReplaySubject;
     procedure ReplaySubjectWithSize;
     procedure ReplaySubjectWithTime;
-
   end;
 
 

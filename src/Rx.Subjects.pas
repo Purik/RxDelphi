@@ -43,10 +43,15 @@ type
     TValue = TSmartVariable<T>;
     TVaueDescr = record
       Value: TValue;
-      Stamp: TTime;
+      Stamp: TDateTime;
     end;
   strict private
     FCache: TList<TVaueDescr>;
+    FLimitBySize: Boolean;
+    FLimitSize: LongWord;
+    FLimitByTime: Boolean;
+    FLimitDelta: TDateTime;
+    FLimitFrom: TDateTime;
   protected
     procedure OnSubscribe(Subscriber: ISubscriber<T>); override;
   public
@@ -67,6 +72,7 @@ type
       TimeUnit: LongWord = Rx.TimeUnit.MILLISECONDS; From: TDateTime=Rx.StdSchedulers.IMMEDIATE);
     destructor Destroy; override;
     procedure OnNext(const Data: T); override;
+    procedure OnCompleted; override;
   end;
 
 
@@ -108,7 +114,7 @@ type
   end;
 
 implementation
-uses SysUtils, Rx.Schedulers;
+uses SysUtils, Rx.Schedulers, DateUtils;
 
 { TPublishSubject<T> }
 
@@ -131,17 +137,44 @@ end;
 
 constructor TReplaySubject<T>.Create;
 begin
+  inherited Create;
   FCache := TList<TVaueDescr>.Create;
 end;
 
 constructor TReplaySubject<T>.CreateWithSize(Size: LongWord);
 begin
+  FLimitBySize := True;
+  FLimitSize := Size;
   Create;
 end;
 
 constructor TReplaySubject<T>.CreateWithTime(Time: LongWord; TimeUnit: LongWord;
   From: TDateTime);
+var
+  Hours, Minutes, Seconds, Millisecs: Word;
 begin
+  FLimitByTime := True;
+  Hours := 0; Minutes := 0; Seconds := 0; Millisecs := 0;
+  case TimeUnit of
+    Rx.TimeUnit.MILLISECONDS: begin
+      Millisecs := Time mod MSecsPerSec;
+      Seconds := (Time div MSecsPerSec) mod SecsPerMin;
+      Minutes := (Time div (MSecsPerSec*SecsPerMin)) mod MinsPerHour;
+      Hours := Time div (MSecsPerSec*SecsPerMin*MinsPerHour);
+    end;
+    Rx.TimeUnit.SECONDS: begin
+      Seconds := Time mod SecsPerMin;
+      Minutes := (Time div SecsPerMin) mod MinsPerHour;
+      Hours := Time div (SecsPerMin*MinsPerHour);
+    end;
+    Rx.TimeUnit.MINUTES: begin
+      Minutes := Time mod MinsPerHour;
+      Hours := Time div MinsPerHour;
+    end
+    else
+      raise ERangeError.Create('Unknown TimeUnit value');
+  end;
+  FLimitFrom := From;
   Create;
 end;
 
@@ -151,6 +184,17 @@ begin
   inherited;
 end;
 
+procedure TReplaySubject<T>.OnCompleted;
+begin
+  inherited;
+  Lock;
+  try
+    FCache.Clear;
+  finally
+    Unlock
+  end;
+end;
+
 procedure TReplaySubject<T>.OnNext(const Data: T);
 var
   Descr: TVaueDescr;
@@ -158,15 +202,27 @@ begin
   inherited OnNext(Data);
   Descr.Value := Data;
   Descr.Stamp := Now;
-  FCache.Add(Descr);
+  Lock;
+  try
+    FCache.Add(Descr);
+  finally
+    Unlock
+  end;
 end;
 
 procedure TReplaySubject<T>.OnSubscribe(Subscriber: ISubscriber<T>);
 var
   Descr: TVaueDescr;
+  A: TArray<TVaueDescr>;
 begin
   inherited;
-  for Descr in FCache do
+  Lock;
+  try
+    A := FCache.ToArray;
+  finally
+    Unlock;
+  end;
+  for Descr in A do
     Subscriber.OnNext(Descr.Value);
 end;
 

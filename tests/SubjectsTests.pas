@@ -18,6 +18,10 @@ type
     procedure PublishSubject1;
     procedure PublishSubject2;
     procedure PublishSubject3;
+    procedure ReplaySubject;
+    procedure ReplaySubjectWithSize;
+    procedure ReplaySubjectWithTime;
+
   end;
 
 
@@ -167,6 +171,65 @@ begin
   finally
     O.Free
   end;
+end;
+
+procedure TSubjectsTests.ReplaySubject;
+var
+  O: TReplaySubject<Integer>;
+  OnNext1, OnNext2, OnNext3: TOnNext<Integer>;
+  OnCompleted1, OnCompleted2: TOnCompleted;
+begin
+
+  OnNext1 := procedure(const Data: Integer)
+  begin
+    FStream.Add(Format('[1]:%d', [Data]))
+  end;
+
+  OnNext2 := procedure(const Data: Integer)
+  begin
+    FStream.Add(Format('[2]:%d', [Data]))
+  end;
+
+  OnNext3 := procedure(const Data: Integer)
+  begin
+    FStream.Add(Format('[3]:%d', [Data]))
+  end;
+
+  OnCompleted1 := procedure
+  begin
+    FStream.Add('[1]:completed')
+  end;
+
+  OnCompleted2 := procedure
+  begin
+    FStream.Add('[2]:completed')
+  end;
+
+  O := TReplaySubject<Integer>.Create;
+  O.Subscribe(OnNext1, OnCompleted1);
+
+  try
+    O.OnNext(1);
+    O.OnNext(2);
+    O.OnNext(3);
+    O.Subscribe(OnNext2, OnCompleted2);
+    O.OnCompleted;
+    O.Subscribe(OnNext3);
+
+    Check(IsEqual(FStream, ['[1]:1', '[1]:2', '[1]:3', '[2]:1', '[2]:2', '[2]:3', '[1]:completed', '[2]:completed']));
+  finally
+    O.Free
+  end;
+end;
+
+procedure TSubjectsTests.ReplaySubjectWithSize;
+begin
+  Check(False);
+end;
+
+procedure TSubjectsTests.ReplaySubjectWithTime;
+begin
+  Check(False);
 end;
 
 procedure TSubjectsTests.SetUp;

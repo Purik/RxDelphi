@@ -21,6 +21,8 @@ type
     procedure ReplaySubject;
     procedure ReplaySubjectWithSize;
     procedure ReplaySubjectWithTime;
+    procedure BehaviorSubject1;
+    procedure BehaviorSubject2;
   end;
 
 
@@ -30,6 +32,70 @@ uses BaseTests;
 
 
 { TSubjectsTests }
+
+procedure TSubjectsTests.BehaviorSubject1;
+var
+  O: TBehaviorSubject<Integer>;
+  OnNext: TOnNext<Integer>;
+  OnCompleted: TOnCompleted;
+begin
+
+  OnNext := procedure(const Data: Integer)
+  begin
+    FStream.Add(Format('%d', [Data]))
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add('completed')
+  end;
+
+  O := TBehaviorSubject<Integer>.Create;
+
+  try
+    O.OnNext(1);
+    O.OnNext(2);
+    O.OnNext(3);
+    O.Subscribe(OnNext, OnCompleted);
+    O.OnNext(4);
+    O.OnCompleted;
+    O.OnNext(5);
+
+    Check(IsEqual(FStream, ['3', '4', 'completed']));
+  finally
+    O.Free
+  end;
+end;
+
+procedure TSubjectsTests.BehaviorSubject2;
+var
+  O: TBehaviorSubject<Integer>;
+  OnNext: TOnNext<Integer>;
+  OnCompleted: TOnCompleted;
+begin
+
+  OnNext := procedure(const Data: Integer)
+  begin
+    FStream.Add(Format('%d', [Data]))
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add('completed')
+  end;
+
+  O := TBehaviorSubject<Integer>.Create(100);
+
+  try
+    O.Subscribe(OnNext, OnCompleted);
+    O.OnNext(4);
+    O.OnCompleted;
+
+    Check(IsEqual(FStream, ['100', '4', 'completed']));
+  finally
+    O.Free
+  end;
+end;
 
 procedure TSubjectsTests.OnItemFree;
 begin

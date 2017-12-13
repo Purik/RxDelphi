@@ -63,7 +63,7 @@ type
      ///    sequences can be long or even infinite.
     ///	  </para>
     ///	  <para>
-    ///     CreateWithSize limits the size of the buffer, and
+    ///     CreateWithSize limits the size of the buffer, and discards the oldest item
      ///    CreateWithTime time that objects will remain in the cache.
     ///	  </para>
     ///	</summary>
@@ -114,7 +114,7 @@ type
   end;
 
 implementation
-uses SysUtils, Rx.Schedulers, DateUtils;
+uses {$IFDEF DEBUG}Windows, {$ENDIF} SysUtils, Rx.Schedulers, DateUtils;
 
 { TPublishSubject<T> }
 
@@ -143,6 +143,8 @@ end;
 
 constructor TReplaySubject<T>.CreateWithSize(Size: LongWord);
 begin
+  if Size = 0 then
+    raise ERangeError.Create('Size must be not equal zero!');
   FLimitBySize := True;
   FLimitSize := Size;
   Create;
@@ -174,6 +176,7 @@ begin
     else
       raise ERangeError.Create('Unknown TimeUnit value');
   end;
+  FLimitDelta := EncodeTime(Hours, Minutes, Seconds, Millisecs);
   FLimitFrom := From;
   Create;
 end;
@@ -198,13 +201,39 @@ end;
 procedure TReplaySubject<T>.OnNext(const Data: T);
 var
   Descr: TVaueDescr;
+  CountToDelete: Integer;
+  I: Integer;
+  LastStamp: TDateTime;
 begin
   inherited OnNext(Data);
   Descr.Value := Data;
   Descr.Stamp := Now;
   Lock;
   try
-    FCache.Add(Descr);
+    if FLimitBySize then begin
+      if LongWord(FCache.Count) >= FLimitSize then
+        FCache.DeleteRange(0, FCache.Count-Integer(FLimitSize)+1);
+      FCache.Add(Descr);
+    end
+    else if FLimitByTime then begin
+      if FLimitFrom <= Now then begin
+        if FCache.Count > 0 then begin
+          LastStamp := Now;
+          CountToDelete := 0;
+          for I := 0 to FCache.Count-1 do begin
+            if (LastStamp - FCache[I].Stamp) > FLimitDelta then
+              Inc(CountToDelete)
+            else
+              Break;
+          end;
+          if CountToDelete > 0 then
+            FCache.DeleteRange(0, CountToDelete);
+        end;
+        FCache.Add(Descr);
+      end
+    end
+    else
+      FCache.Add(Descr);
   finally
     Unlock
   end;

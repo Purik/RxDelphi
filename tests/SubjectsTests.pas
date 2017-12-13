@@ -223,13 +223,77 @@ begin
 end;
 
 procedure TSubjectsTests.ReplaySubjectWithSize;
+var
+  O: TReplaySubject<Integer>;
+  OnNext: TOnNext<Integer>;
+  OnCompleted: TOnCompleted;
 begin
-  Check(False);
+
+  OnNext := procedure(const Data: Integer)
+  begin
+    FStream.Add(Format('%d', [Data]))
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add('completed')
+  end;
+
+  O := TReplaySubject<Integer>.CreateWithSize(3);
+
+  try
+    O.OnNext(1);
+    O.OnNext(2);
+    O.OnNext(3);
+    O.OnNext(4);
+    O.OnNext(5);
+    O.Subscribe(OnNext, OnCompleted);
+    O.OnNext(6);
+    O.OnCompleted;
+    O.OnNext(7);
+
+    Check(IsEqual(FStream, ['3', '4', '5', '6', 'completed']));
+  finally
+    O.Free
+  end;
 end;
 
 procedure TSubjectsTests.ReplaySubjectWithTime;
+var
+  O: TReplaySubject<Integer>;
+  OnNext: TOnNext<Integer>;
+  OnCompleted: TOnCompleted;
 begin
-  Check(False);
+
+  OnNext := procedure(const Data: Integer)
+  begin
+    FStream.Add(Format('%d', [Data]))
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add('completed')
+  end;
+
+  O := TReplaySubject<Integer>.CreateWithTime(100, Rx.TimeUnit.MILLISECONDS, Now + EncodeTime(0, 0, 0, 100));
+  try
+    O.OnNext(1); // must be losed cause of initial from parameter
+    Sleep(100);
+    O.OnNext(2);
+    Sleep(90);
+    O.OnNext(3);
+    Sleep(10);
+    O.OnNext(4);
+    Sleep(10);
+    O.OnNext(5);
+    O.OnNext(6);
+    O.Subscribe(OnNext, OnCompleted);
+    O.OnCompleted;
+
+    Check(IsEqual(FStream, ['3', '4', '5', '6', 'completed']));
+  finally
+    O.Free
+  end;
 end;
 
 procedure TSubjectsTests.SetUp;

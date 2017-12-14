@@ -23,6 +23,12 @@ type
   end;
 
   TJoinStrategy<X, Y> = class(TInterfacedObject, IJoinStrategy<X, Y>)
+  strict private
+    FCompleted: Boolean;
+    FError: IThrowable;
+  protected
+    property Completed: Boolean read FCompleted write FCompleted;
+    property Error: IThrowable read FError write FError;
   public
     function OnNext(const Left: X): TZip<X, Y>; overload; dynamic; abstract;
     function OnNext(const Right: Y): TZip<X, Y>; overload; dynamic; abstract;
@@ -433,14 +439,18 @@ end;
 
 procedure TOnceSubscriber<Z, X, Y> .OnCompleted;
 begin
-  if not IsUnsubscribed then
-    FDest.OnCompleted
+  if not IsUnsubscribed then begin
+    FDest.OnCompleted;
+    Unsubscribe;
+  end;
 end;
 
 procedure TOnceSubscriber<Z, X, Y> .OnError(E: IThrowable);
 begin
-  if not IsUnsubscribed then
-    FDest.OnError(E)
+  if not IsUnsubscribed then begin
+    FDest.OnError(E);
+    Unsubscribe;
+  end;
 end;
 
 procedure TOnceSubscriber<Z, X, Y>.OnNext(const A: Z);

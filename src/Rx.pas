@@ -447,6 +447,8 @@ type
     function ToString: string; reintroduce;
   end;
 
+  TIntervalObserverPImpl = class(TIntervalObserver);
+
 { TThrowableImpl }
 
 constructor TThrowableImpl.Create(E: Exception);
@@ -1111,16 +1113,16 @@ class function Observable.IntervalDelayed(InitialDelay, Delay,
 begin
   case aTimeUnit of
     TimeUnit.MILLISECONDS: begin
-      TIntervalObserver.CurDelay := Delay;
-      TIntervalObserver.InitialDelay := InitialDelay;
+      TIntervalObserverPImpl.CurDelay := Delay;
+      TIntervalObserverPImpl.InitialDelay := InitialDelay;
     end;
     TimeUnit.SECONDS: begin
-      TIntervalObserver.CurDelay := Delay*1000;
-      TIntervalObserver.InitialDelay := InitialDelay*1000;
+      TIntervalObserverPImpl.CurDelay := Delay*1000;
+      TIntervalObserverPImpl.InitialDelay := InitialDelay*1000;
     end;
     TimeUnit.MINUTES: begin
-      TIntervalObserver.CurDelay := Delay*1000*60;
-      TIntervalObserver.InitialDelay := InitialDelay*1000*60;
+      TIntervalObserverPImpl.CurDelay := Delay*1000*60;
+      TIntervalObserverPImpl.InitialDelay := InitialDelay*1000*60;
     end;
   end;
   Result := TIntervalObserver.Create;
@@ -1148,13 +1150,13 @@ class function Observable.Interval(Delay, aTimeUnit: LongWord): TObservable<Long
 begin
   case aTimeUnit of
     TimeUnit.MILLISECONDS:
-      TIntervalObserver.CurDelay := Delay;
+      TIntervalObserverPImpl.CurDelay := Delay;
     TimeUnit.SECONDS:
-      TIntervalObserver.CurDelay := Delay*1000;
+      TIntervalObserverPImpl.CurDelay := Delay*1000;
     TimeUnit.MINUTES:
-      TIntervalObserver.CurDelay := Delay*1000*60;
+      TIntervalObserverPImpl.CurDelay := Delay*1000*60;
   end;
-  TIntervalObserver.InitialDelay := 0;
+  TIntervalObserverPImpl.InitialDelay := 0;
   Result := TIntervalObserver.Create;
 end;
 

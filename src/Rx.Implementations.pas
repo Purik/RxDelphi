@@ -218,9 +218,9 @@ type
     FThreads: TList<TIntervalThread>;
   protected
     procedure OnSubscribe(Subscriber: ISubscriber<LongWord>); override;
-  public
     class threadvar CurDelay: LongWord;
     class threadvar InitialDelay: LongWord;
+  public
     constructor Create;
     destructor Destroy; override;
   end;
@@ -598,6 +598,7 @@ var
   Once: ISubscription;
   Succ: Boolean;
   SubscribeOnScheduler: IScheduler;
+  SubscriberDecorator: ISubscriber<T>;
 begin
   if OffOnSubscribe then
     Exit;
@@ -605,18 +606,29 @@ begin
   Lock;
   SubscribeOnScheduler := FSubscribeOnScheduler;
   Unlock;
+  SubscriberDecorator := TSubscriberDecorator<T>.Create(Subscriber, FScheduler);
 
   if Assigned(FOnSubscribe) then
     if Assigned(SubscribeOnScheduler) then
       //SubscribeOnScheduler.Invoke(TOnSubscribeAction<T>.Create);
       raise Exception.Create('TODO')
-    else
-      FOnSubscribe(TSubscriberDecorator<T>.Create(Subscriber, FScheduler));
+    else begin
+      try
+        FOnSubscribe(SubscriberDecorator);
+      except
+        SubscriberDecorator.OnError(Observable.CatchException)
+      end;
+    end;
   if Assigned(FOnSubscribe2) then
     if Assigned(SubscribeOnScheduler) then
       raise Exception.Create('TODO')
-    else
-      FOnSubscribe2(TSubscriberDecorator<T>.Create(Subscriber, FScheduler));
+    else begin
+      try
+        FOnSubscribe2(SubscriberDecorator);
+      except
+        SubscriberDecorator.OnError(Observable.CatchException)
+      end;
+    end;
 
   for S in FInputs do begin
     S.Lock;

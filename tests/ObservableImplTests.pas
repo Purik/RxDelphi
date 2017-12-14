@@ -85,6 +85,10 @@ type
     procedure Defer;
     procedure Zip1;
     procedure Zip2;
+    procedure ZipCompleted1;
+    procedure ZipCompleted2;
+    procedure ZipCompletedMultiThreaded;
+    procedure ZipError1;
     procedure CombineLatest1;
     procedure WithLatestFrom1;
     procedure AMB1;
@@ -1400,6 +1404,182 @@ begin
 
 end;
 
+procedure TOperationsTests.ZipCompleted1;
+var
+  Left: TObservable<Integer>;
+  Right: TObservable<string>;
+  OnNext: TOnNext<TZip<Integer, string>>;
+  OnCompleted: TOnCompleted;
+  OnSubscribe1: TOnSubscribe<Integer>;
+  OnSubscribe2: TOnSubscribe<string>;
+begin
+
+  OnNext := procedure(const Data: TZip<Integer, string>)
+  begin
+    FStream.Add(Format('%d:%s', [Data.A, Data.B]));
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add('completed');
+  end;
+
+  OnSubscribe1 := procedure(O: IObserver<Integer>)
+  begin
+    O.OnNext(1);
+    O.OnNext(2);
+    O.OnNext(3);
+    O.OnNext(4);
+    O.OnNext(5);
+    O.OnNext(6);
+  end;
+
+  OnSubscribe2 := procedure(O: IObserver<string>)
+  begin
+    O.OnNext('A');
+    O.OnNext('B');
+    O.OnCompleted;
+  end;
+
+  Left := TObservable<Integer>.Create(OnSubscribe1);
+  Right := TObservable<string>.Create(OnSubscribe2);
+
+  Observable.Zip<Integer, string>(Left, Right).Subscribe(OnNext, OnCompleted);
+
+  Check(IsEqual(FStream, ['1:A', '2:B', 'completed']));
+
+end;
+
+procedure TOperationsTests.ZipCompleted2;
+var
+  Left: TObservable<Integer>;
+  Right: TObservable<string>;
+  OnNext: TOnNext<TZip<Integer, string>>;
+  OnCompleted: TOnCompleted;
+  OnSubscribe1: TOnSubscribe<Integer>;
+  OnSubscribe2: TOnSubscribe<string>;
+begin
+
+  OnNext := procedure(const Data: TZip<Integer, string>)
+  begin
+    FStream.Add(Format('%d:%s', [Data.A, Data.B]));
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add('completed');
+  end;
+
+  OnSubscribe1 := procedure(O: IObserver<Integer>)
+  begin
+    O.OnNext(1);
+    O.OnNext(2);
+    O.OnNext(3);
+    O.OnNext(4);
+    O.OnNext(5);
+    O.OnNext(6);
+  end;
+
+  OnSubscribe2 := procedure(O: IObserver<string>)
+  begin
+    O.OnNext('A');
+    O.OnNext('B');
+    O.OnCompleted;
+  end;
+
+  Left := TObservable<Integer>.Create(OnSubscribe1);
+
+  Observable.Zip<Integer, string>(Left, Right).Subscribe(OnNext, OnCompleted);
+  Right.OnNext('A');
+  Right.OnNext('B');
+  Right.OnCompleted;
+
+  Check(IsEqual(FStream, ['1:A', '2:B', 'completed']));
+
+end;
+
+procedure TOperationsTests.ZipCompletedMultiThreaded;
+var
+  Timer: TObservable<LongWord>;
+  Values: TObservable<string>;
+  OnNext: TOnNext<TZip<LongWord, string>>;
+  OnCompleted: TOnCompleted;
+  OnSubscribeValues: TOnSubscribe<string>;
+begin
+
+  OnNext := procedure(const Data: TZip<LongWord, string>)
+  begin
+    FStream.Add(Format('%d:%s', [Data.A, Data.B]));
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add('completed');
+  end;
+
+  OnSubscribeValues := procedure(O: IObserver<string>)
+  begin
+    O.OnNext('A');
+    O.OnNext('B');
+    O.OnCompleted;
+  end;
+
+  Timer := Observable.Interval(1000);
+  Values := TObservable<string>.Create(OnSubscribeValues);
+
+  Observable.Zip<LongWord, string>(Timer, Values).Subscribe(OnNext, OnCompleted);
+
+ // Check(IsEqual(FStream, ['1:A', '2:B', 'completed']));
+
+end;
+
+procedure TOperationsTests.ZipError1;
+var
+  Left: TObservable<Integer>;
+  Right: TObservable<string>;
+  OnNext: TOnNext<TZip<Integer, string>>;
+  OnError: TOnError;
+  OnSubscribe1: TOnSubscribe<Integer>;
+  OnSubscribe2: TOnSubscribe<string>;
+begin
+
+  OnNext := procedure(const Data: TZip<Integer, string>)
+  begin
+    FStream.Add(Format('%d:%s', [Data.A, Data.B]));
+  end;
+
+  OnError := procedure(E: IThrowable)
+  begin
+    FStream.Add(Format('error: %s', [E.GetMessage]));
+  end;
+
+  OnSubscribe1 := procedure(O: IObserver<Integer>)
+  begin
+    O.OnNext(1);
+    O.OnNext(2);
+    O.OnNext(3);
+    O.OnNext(4);
+    O.OnNext(5);
+    O.OnNext(6);
+  end;
+
+  OnSubscribe2 := procedure(O: IObserver<string>)
+  begin
+    O.OnNext('A');
+    O.OnNext('B');
+    raise ETestError.Create('test');
+    O.OnNext('C');
+  end;
+
+  Left := TObservable<Integer>.Create(OnSubscribe1);
+  Right := TObservable<string>.Create(OnSubscribe2);
+
+  Observable.Zip<Integer, string>(Left, Right).Subscribe(OnNext, OnError);
+
+  Check(IsEqual(FStream, ['1:A', '2:B', 'error: test']));
+
+end;
+
 { TSmartVariableTests }
 
 procedure TSmartVariableTests.Clear;
@@ -1669,6 +1849,8 @@ begin
   CheckEquals(3, FStream.Count);
   CheckEquals(2, FFreesLog.Count);
 end;
+
+
 
 { TConstructorTests }
 

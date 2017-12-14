@@ -9,8 +9,6 @@ type
   TSubjectsTests = class(TTestCase)
   strict private
     FStream: TList<string>;
-    FFreesLog: TList<string>;
-    procedure OnItemFree;
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -23,6 +21,7 @@ type
     procedure ReplaySubjectWithTime;
     procedure BehaviorSubject1;
     procedure BehaviorSubject2;
+    procedure AsyncSubject;
   end;
 
 
@@ -32,6 +31,50 @@ uses BaseTests;
 
 
 { TSubjectsTests }
+
+procedure TSubjectsTests.AsyncSubject;
+var
+  O: TAsyncSubject<Integer>;
+  OnNext1, OnNext2: TOnNext<Integer>;
+  OnCompleted1, OnCompleted2: TOnCompleted;
+begin
+
+  OnNext1 := procedure(const Data: Integer)
+  begin
+    FStream.Add(Format('[1]:%d', [Data]))
+  end;
+
+  OnNext2 := procedure(const Data: Integer)
+  begin
+    FStream.Add(Format('[2]:%d', [Data]))
+  end;
+
+  OnCompleted1 := procedure
+  begin
+    FStream.Add('[1]:completed')
+  end;
+
+  OnCompleted2 := procedure
+  begin
+    FStream.Add('[2]:completed')
+  end;
+
+  O := TAsyncSubject<Integer>.Create;
+  O.Subscribe(OnNext1, OnCompleted1);
+  try
+    O.OnNext(1);
+    O.OnNext(2);
+    O.Subscribe(OnNext2, OnCompleted2);
+    O.OnNext(3);
+    O.OnNext(4);
+    O.OnCompleted;
+    O.OnNext(5);
+
+    Check(IsEqual(FStream, ['[1]:1', '[1]:2', '[1]:3', '[1]:4', '[2]:1', '[2]:2', '[2]:3', '[2]:4', '[1]:completed', '[2]:completed']));
+  finally
+    O.Free
+  end;
+end;
 
 procedure TSubjectsTests.BehaviorSubject1;
 var
@@ -95,11 +138,6 @@ begin
   finally
     O.Free
   end;
-end;
-
-procedure TSubjectsTests.OnItemFree;
-begin
-  FFreesLog.Add('destroy')
 end;
 
 procedure TSubjectsTests.PublishSubject1;
@@ -365,14 +403,12 @@ procedure TSubjectsTests.SetUp;
 begin
   inherited;
   FStream := TList<string>.Create;
-  FFreesLog := TList<string>.Create;
 end;
 
 procedure TSubjectsTests.TearDown;
 begin
   inherited;
   FStream.Free;
-  FFreesLog.Free;
 end;
 
 initialization

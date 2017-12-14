@@ -43,10 +43,15 @@ type
     TValue = TSmartVariable<T>;
     TVaueDescr = record
       Value: TValue;
-      Stamp: TTime;
+      Stamp: TDateTime;
     end;
   strict private
     FCache: TList<TVaueDescr>;
+    FLimitBySize: Boolean;
+    FLimitSize: LongWord;
+    FLimitByTime: Boolean;
+    FLimitDelta: TDateTime;
+    FLimitFrom: TDateTime;
   protected
     procedure OnSubscribe(Subscriber: ISubscriber<T>); override;
   public
@@ -58,8 +63,10 @@ type
      ///    sequences can be long or even infinite.
     ///	  </para>
     ///	  <para>
-    ///     CreateWithSize limits the size of the buffer, and
+    ///     CreateWithSize limits the size of the buffer, and discards the oldest item
      ///    CreateWithTime time that objects will remain in the cache.
+     ///     internally tags each observed item with a timestamp value supplied by the
+     ///     scheduler and keeps only those whose age is less than the supplied time value
     ///	  </para>
     ///	</summary>
     constructor CreateWithSize(Size: LongWord);
@@ -67,6 +74,7 @@ type
       TimeUnit: LongWord = Rx.TimeUnit.MILLISECONDS; From: TDateTime=Rx.StdSchedulers.IMMEDIATE);
     destructor Destroy; override;
     procedure OnNext(const Data: T); override;
+    procedure OnCompleted; override;
   end;
 
 
@@ -108,7 +116,7 @@ type
   end;
 
 implementation
-uses SysUtils, Rx.Schedulers;
+uses {$IFDEF DEBUG}Windows, {$ENDIF} SysUtils, Rx.Schedulers, DateUtils;
 
 { TPublishSubject<T> }
 
@@ -131,17 +139,47 @@ end;
 
 constructor TReplaySubject<T>.Create;
 begin
+  inherited Create;
   FCache := TList<TVaueDescr>.Create;
 end;
 
 constructor TReplaySubject<T>.CreateWithSize(Size: LongWord);
 begin
+  if Size = 0 then
+    raise ERangeError.Create('Size must be not equal zero!');
+  FLimitBySize := True;
+  FLimitSize := Size;
   Create;
 end;
 
 constructor TReplaySubject<T>.CreateWithTime(Time: LongWord; TimeUnit: LongWord;
   From: TDateTime);
+var
+  Hours, Minutes, Seconds, Millisecs: Word;
 begin
+  FLimitByTime := True;
+  Hours := 0; Minutes := 0; Seconds := 0; Millisecs := 0;
+  case TimeUnit of
+    Rx.TimeUnit.MILLISECONDS: begin
+      Millisecs := Time mod MSecsPerSec;
+      Seconds := (Time div MSecsPerSec) mod SecsPerMin;
+      Minutes := (Time div (MSecsPerSec*SecsPerMin)) mod MinsPerHour;
+      Hours := Time div (MSecsPerSec*SecsPerMin*MinsPerHour);
+    end;
+    Rx.TimeUnit.SECONDS: begin
+      Seconds := Time mod SecsPerMin;
+      Minutes := (Time div SecsPerMin) mod MinsPerHour;
+      Hours := Time div (SecsPerMin*MinsPerHour);
+    end;
+    Rx.TimeUnit.MINUTES: begin
+      Minutes := Time mod MinsPerHour;
+      Hours := Time div MinsPerHour;
+    end
+    else
+      raise ERangeError.Create('Unknown TimeUnit value');
+  end;
+  FLimitDelta := EncodeTime(Hours, Minutes, Seconds, Millisecs);
+  FLimitFrom := From;
   Create;
 end;
 
@@ -151,22 +189,71 @@ begin
   inherited;
 end;
 
+procedure TReplaySubject<T>.OnCompleted;
+begin
+  inherited;
+  Lock;
+  try
+    FCache.Clear;
+  finally
+    Unlock
+  end;
+end;
+
 procedure TReplaySubject<T>.OnNext(const Data: T);
 var
   Descr: TVaueDescr;
+  CountToDelete: Integer;
+  I: Integer;
+  LastStamp: TDateTime;
 begin
   inherited OnNext(Data);
   Descr.Value := Data;
   Descr.Stamp := Now;
-  FCache.Add(Descr);
+  Lock;
+  try
+    if FLimitBySize then begin
+      if LongWord(FCache.Count) >= FLimitSize then
+        FCache.DeleteRange(0, FCache.Count-Integer(FLimitSize)+1);
+      FCache.Add(Descr);
+    end
+    else if FLimitByTime then begin
+      if FLimitFrom <= Now then begin
+        if FCache.Count > 0 then begin
+          LastStamp := Now;
+          CountToDelete := 0;
+          for I := 0 to FCache.Count-1 do begin
+            if (LastStamp - FCache[I].Stamp) > FLimitDelta then
+              Inc(CountToDelete)
+            else
+              Break;
+          end;
+          if CountToDelete > 0 then
+            FCache.DeleteRange(0, CountToDelete);
+        end;
+        FCache.Add(Descr);
+      end
+    end
+    else
+      FCache.Add(Descr);
+  finally
+    Unlock
+  end;
 end;
 
 procedure TReplaySubject<T>.OnSubscribe(Subscriber: ISubscriber<T>);
 var
   Descr: TVaueDescr;
+  A: TArray<TVaueDescr>;
 begin
   inherited;
-  for Descr in FCache do
+  Lock;
+  try
+    A := FCache.ToArray;
+  finally
+    Unlock;
+  end;
+  for Descr in A do
     Subscriber.OnNext(Descr.Value);
 end;
 

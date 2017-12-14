@@ -142,6 +142,15 @@ type
     procedure Emit;
   end;
 
+  TOnSubscribeAction<T> = class(TInterfacedObject, IAction)
+  strict private
+    FContract: IContract<T>;
+    FRoutine: TOnSubscribe<T>;
+  public
+    constructor Create(Contract: IContract<T>; const Routine: TOnSubscribe<T>);
+    procedure Emit;
+  end;
+
   TObservableImpl<T> = class(TInterfacedObject, IObservable<T>, IObserver<T>)
   type
     IContract = IContract<T>;
@@ -152,6 +161,7 @@ type
     FContracts: TList<IContract>;
     FInputs: TList<IFromSubscription>;
     FScheduler: IScheduler;
+    FSubscribeOnScheduler: IScheduler;
     FDoOnNext: TOnNext<T>;
     FOnSubscribe: TOnSubscribe<T>;
     FOnSubscribe2: TOnSubscribe2<T>;
@@ -186,6 +196,7 @@ type
     procedure OnError(E: IThrowable); dynamic;
     procedure OnCompleted; dynamic;
     procedure ScheduleOn(Scheduler: IScheduler);
+    procedure SubscribeOn(Scheduler: IScheduler);
     procedure DoOnNext(const Cb: TOnNext<T>);
   end;
 
@@ -428,6 +439,28 @@ begin
   end;
 end;
 
+{ TOnSubscribeAction<T> }
+
+constructor TOnSubscribeAction<T>.Create(Contract: IContract<T>; const Routine: TOnSubscribe<T>);
+begin
+
+end;
+
+procedure TOnSubscribeAction<T>.Emit;
+begin
+  FContract.Lock;
+  try
+    if Assigned(FContract.GetSubscriber) then
+      FRoutine(FContract.GetSubscriber)
+    else
+      FContract.Unsubscribe;
+  finally
+    FContract.Unlock
+  end;
+end;
+
+
+
 { TObservableImpl<T> }
 
 constructor TObservableImpl<T>.Create;
@@ -564,13 +597,27 @@ var
   S: IFromSubscription;
   Once: ISubscription;
   Succ: Boolean;
+  SubscribeOnScheduler: IScheduler;
 begin
   if OffOnSubscribe then
     Exit;
+
+  Lock;
+  SubscribeOnScheduler := FSubscribeOnScheduler;
+  Unlock;
+
   if Assigned(FOnSubscribe) then
-    FOnSubscribe(TSubscriberDecorator<T>.Create(Subscriber, FScheduler));
+    if Assigned(SubscribeOnScheduler) then
+      //SubscribeOnScheduler.Invoke(TOnSubscribeAction<T>.Create);
+      raise Exception.Create('TODO')
+    else
+      FOnSubscribe(TSubscriberDecorator<T>.Create(Subscriber, FScheduler));
   if Assigned(FOnSubscribe2) then
-    FOnSubscribe2(TSubscriberDecorator<T>.Create(Subscriber, FScheduler));
+    if Assigned(SubscribeOnScheduler) then
+      raise Exception.Create('TODO')
+    else
+      FOnSubscribe2(TSubscriberDecorator<T>.Create(Subscriber, FScheduler));
+
   for S in FInputs do begin
     S.Lock;
     try
@@ -605,6 +652,13 @@ procedure TObservableImpl<T>.ScheduleOn(Scheduler: IScheduler);
 begin
   Lock;
   FScheduler := Scheduler;
+  Unlock;
+end;
+
+procedure TObservableImpl<T>.SubscribeOn(Scheduler: IScheduler);
+begin
+  Lock;
+  FSubscribeOnScheduler := Scheduler;
   Unlock;
 end;
 

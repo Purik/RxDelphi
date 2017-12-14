@@ -218,9 +218,9 @@ type
     FThreads: TList<TIntervalThread>;
   protected
     procedure OnSubscribe(Subscriber: ISubscriber<LongWord>); override;
-  public
     class threadvar CurDelay: LongWord;
     class threadvar InitialDelay: LongWord;
+  public
     constructor Create;
     destructor Destroy; override;
   end;

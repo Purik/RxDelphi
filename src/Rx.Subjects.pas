@@ -71,7 +71,7 @@ type
     ///	</summary>
     constructor CreateWithSize(Size: LongWord);
     constructor CreateWithTime(Time: LongWord;
-      TimeUnit: LongWord = Rx.TimeUnit.MILLISECONDS; From: TDateTime=Rx.StdSchedulers.IMMEDIATE);
+      TimeUnit: TimeUnit = Rx.TimeUnit.MILLISECONDS; From: TDateTime=Rx.StdSchedulers.IMMEDIATE);
     destructor Destroy; override;
     procedure OnNext(const Data: T); override;
     procedure OnCompleted; override;
@@ -152,7 +152,7 @@ begin
   Create;
 end;
 
-constructor TReplaySubject<T>.CreateWithTime(Time: LongWord; TimeUnit: LongWord;
+constructor TReplaySubject<T>.CreateWithTime(Time: LongWord; TimeUnit: TimeUnit;
   From: TDateTime);
 var
   Hours, Minutes, Seconds, Millisecs: Word;

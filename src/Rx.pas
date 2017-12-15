@@ -5,12 +5,11 @@ uses SysUtils, Generics.Collections, Generics.Defaults;
 
 type
 
-  TimeUnit = record
-  const
-    MILLISECONDS = 0;
-    SECONDS = 1;
-    MINUTES = 2;
-  end;
+  TimeUnit = (
+    MILLISECONDS = 0,
+    SECONDS = 1,
+    MINUTES = 2
+  );
 
   IAction = interface
     procedure Emit;
@@ -319,7 +318,7 @@ type
     ///  Use the Sheduler if you want to redirect the events to context
     ///  other threads.
     ///	</remarks>
-    function Delay(aDelay: LongWord; aTimeUnit: LongWord = TimeUnit.SECONDS): TObservable<T>; overload;
+    function Delay(aDelay: LongWord; aTimeUnit: TimeUnit = TimeUnit.SECONDS): TObservable<T>; overload;
 
     ///	<summary>
     ///	  Filtering
@@ -400,8 +399,8 @@ type
     ///  Start the intervals. The counter works in the separate thread, it's necessary
     ///   consider.
     ///	</summary>
-    class function Interval(Delay: LongWord; aTimeUnit: LongWord = TimeUnit.SECONDS): TObservable<LongWord>; overload; static;
-    class function IntervalDelayed(InitialDelay: LongWord; Delay: LongWord; aTimeUnit: LongWord = TimeUnit.SECONDS): TObservable<LongWord>; overload; static;
+    class function Interval(Delay: LongWord; aTimeUnit: TimeUnit = TimeUnit.SECONDS): TObservable<LongWord>; overload; static;
+    class function IntervalDelayed(InitialDelay: LongWord; Delay: LongWord; aTimeUnit: TimeUnit = TimeUnit.SECONDS): TObservable<LongWord>; overload; static;
 
     ///	<summary>
     ///	  Rx-style counters
@@ -580,7 +579,7 @@ begin
   Impl := Rx.Observable.Defer.TDefer<T>.Create(Routine);
 end;
 
-function TObservable<T>.Delay(aDelay, aTimeUnit: LongWord): TObservable<T>;
+function TObservable<T>.Delay(aDelay: LongWord; aTimeUnit: TimeUnit): TObservable<T>;
 begin
   Result := TDelay<T>.Create(GetImpl, aDelay, aTimeUnit);
 end;
@@ -1117,8 +1116,8 @@ begin
   Result := OA.CombineLatest<B>(OB)
 end;
 
-class function Observable.IntervalDelayed(InitialDelay, Delay,
-  aTimeUnit: LongWord): TObservable<LongWord>;
+class function Observable.IntervalDelayed(InitialDelay, Delay: LongWord;
+  aTimeUnit: TimeUnit): TObservable<LongWord>;
 begin
   case aTimeUnit of
     TimeUnit.MILLISECONDS: begin
@@ -1155,7 +1154,7 @@ begin
   end;
 end;
 
-class function Observable.Interval(Delay, aTimeUnit: LongWord): TObservable<LongWord>;
+class function Observable.Interval(Delay: LongWord; aTimeUnit: TimeUnit): TObservable<LongWord>;
 begin
   case aTimeUnit of
     TimeUnit.MILLISECONDS:

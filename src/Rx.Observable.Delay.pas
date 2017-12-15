@@ -17,7 +17,7 @@ type
     procedure OnTimeout(const Iter: LongWord);
   public
     constructor Create(Source: IObservable<T>;
-      aInterval: LongWord; aTimeUnit: LongWord = TimeUnit.SECONDS);
+      aInterval: LongWord; aTimeUnit: TimeUnit = TimeUnit.SECONDS);
     destructor Destroy; override;
     procedure OnNext(const Data: T); override;
     procedure OnError(E: IThrowable); override;
@@ -29,7 +29,7 @@ implementation
 { TDelay<T> }
 
 constructor TDelay<T>.Create(Source: IObservable<T>;
-  aInterval: LongWord; aTimeUnit: LongWord = TimeUnit.SECONDS);
+  aInterval: LongWord; aTimeUnit: TimeUnit = TimeUnit.SECONDS);
 begin
   inherited Create;
   FCache := TList<TValue>.Create;

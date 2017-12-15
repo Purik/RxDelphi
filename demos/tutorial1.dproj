@@ -76,6 +76,7 @@
         <DCC_RemoteDebug>true</DCC_RemoteDebug>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
+        <DCC_UnitSearchPath>..\src;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_UsePackage>RxDelphi;$(DCC_UsePackage)</DCC_UsePackage>
         <UsePackages>false</UsePackages>
         <Manifest_File>None</Manifest_File>

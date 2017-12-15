@@ -20,18 +20,32 @@ type
   IJoinStrategy<X, Y> = interface
     function OnNext(const Left: X): TZip<X, Y>; overload;
     function OnNext(const Right: Y): TZip<X, Y>; overload;
+    procedure OnCompletedLeft;
+    procedure OnCompletedRight;
+    procedure OnErrorLeft(Error: IThrowable);
+    procedure OnErrorRight(Error: IThrowable);
+    function GetError: IThrowable;
+    function IsCompleted: Boolean;
   end;
 
   TJoinStrategy<X, Y> = class(TInterfacedObject, IJoinStrategy<X, Y>)
   strict private
-    FCompleted: Boolean;
+    FCompletedLeft: Boolean;
+    FCompletedRight: Boolean;
     FError: IThrowable;
   protected
-    property Completed: Boolean read FCompleted write FCompleted;
+    property CompletedLeft: Boolean read FCompletedLeft write FCompletedLeft;
+    property CompletedRight: Boolean read FCompletedRight write FCompletedRight;
     property Error: IThrowable read FError write FError;
   public
     function OnNext(const Left: X): TZip<X, Y>; overload; dynamic; abstract;
     function OnNext(const Right: Y): TZip<X, Y>; overload; dynamic; abstract;
+    procedure OnCompletedLeft; dynamic;
+    procedure OnCompletedRight; dynamic;
+    procedure OnErrorLeft(Error: IThrowable); dynamic;
+    procedure OnErrorRight(Error: IThrowable); dynamic;
+    function GetError: IThrowable; dynamic;
+    function IsCompleted: Boolean; dynamic;
   end;
 
   TSyncStrategy<X, Y> = class(TJoinStrategy<X, Y>)
@@ -43,6 +57,7 @@ type
     destructor Destroy; override;
     function OnNext(const Left: X): TZip<X, Y>; overload; override;
     function OnNext(const Right: Y): TZip<X, Y>; overload; override;
+    function IsCompleted: Boolean; override;
   end;
 
   TCombineLatestStrategy<X, Y> = class(TJoinStrategy<X, Y>)
@@ -128,6 +143,11 @@ type
     procedure SetStrategy(Value: IJoinStrategy<X, Y>);
     procedure RouteLeftFiberExecute(Fiber: TCustomFiber);
     procedure RouteRightFiberExecute(Fiber: TCustomFiber);
+    procedure OnErrorLeft(E: IThrowable);
+    procedure OnErrorRight(E: IThrowable);
+    procedure OnCompletedLeft;
+    procedure OnCompletedRight;
+    procedure CheckCompletition;
   public
     constructor Create(Left: IObservable<X>; Right: IObservable<Y>;
       const Routine: TOnNextRoutine; const OnError: TOnErrorRoutine;
@@ -208,14 +228,14 @@ begin
   FLeftIcp := TInterceptor<X>.Create;
   with FLeftIcp do begin
     FOnNextIntercept := Self.OnNext;
-    FOnErrorIntercept := Self.OnError;
-    FOnCompletedIntercept := Self.OnCompleted
+    FOnErrorIntercept := Self.OnErrorLeft;
+    FOnCompletedIntercept := Self.OnCompletedLeft;
   end;
   FRightIcp := TInterceptor<Y>.Create;
   with FRightIcp do begin
     FOnNextIntercept := Self.OnNextRight;
-    FOnErrorIntercept := Self.OnError;
-    FOnCompletedIntercept := Self.OnCompleted
+    FOnErrorIntercept := Self.OnErrorRight;
+    FOnCompletedIntercept := Self.OnCompletedRight;
   end;
   //
   FRoutine := Routine;
@@ -291,10 +311,20 @@ begin
       Zip := GetStrategy.OnNext(Right);
       if Assigned(Zip) then
         FRoutine(Zip);
+      CheckCompletition
     finally
       Unlock;
     end;
   end;
+end;
+
+procedure TJoiner<X, Y>.CheckCompletition;
+begin
+  if GetStrategy.IsCompleted then
+    if GetStrategy.GetError <> nil then
+      FOnError(GetStrategy.GetError)
+    else
+      FOnCompleted;
 end;
 
 procedure TJoiner<X, Y>.OnNextRight(const Right: Y);
@@ -347,6 +377,70 @@ begin
   FStrategy := Value;
 end;
 
+procedure TJoiner<X, Y>.OnErrorLeft(E: IThrowable);
+begin
+  if Route then
+    RouteLeft.OnError(E)
+  else begin
+    Lock;
+    try
+      GetStrategy.OnErrorLeft(E);
+      if GetStrategy.IsCompleted then
+        FOnError(GetStrategy.GetError)
+    finally
+      Unlock;
+    end;
+  end;
+end;
+
+procedure TJoiner<X, Y>.OnErrorRight(E: IThrowable);
+begin
+  if Route then
+    RouteRight.OnError(E)
+  else begin
+    Lock;
+    try
+      GetStrategy.OnErrorRight(E);
+      if GetStrategy.IsCompleted then
+        FOnError(GetStrategy.GetError)
+    finally
+      Unlock;
+    end;
+  end;
+end;
+
+procedure TJoiner<X, Y>.OnCompletedLeft;
+begin
+  if Route then
+    RouteLeft.OnCompleted
+  else begin
+    Lock;
+    try
+      GetStrategy.OnCompletedLeft;
+      if GetStrategy.IsCompleted then
+        FOnCompleted
+    finally
+      Unlock;
+    end;
+  end;
+end;
+
+procedure TJoiner<X, Y>.OnCompletedRight;
+begin
+  if Route then
+    RouteRight.OnCompleted
+  else begin
+    Lock;
+    try
+      GetStrategy.OnCompletedRight;
+      if GetStrategy.IsCompleted then
+        FOnCompleted
+    finally
+      Unlock;
+    end;
+  end;
+end;
+
 procedure TJoiner<X, Y>.UnLock;
 begin
   FLock.Release;
@@ -363,9 +457,9 @@ begin
     Lock;
     try
       Zip := GetStrategy.OnNext(Left);
-      if Assigned(Zip) then begin
+      if Assigned(Zip) then
         FRoutine(Zip);
-      end;
+      CheckCompletition;
     finally
       Unlock;
     end;
@@ -547,6 +641,16 @@ begin
     FRightBuffer.Add(Right)
 end;
 
+function TSyncStrategy<X, Y>.IsCompleted: Boolean;
+begin
+  if CompletedLeft then
+    Result := FLeftBuffer.Count = 0
+  else if CompletedRight then
+    Result := FRightBuffer.Count = 0
+  else
+    Result := False;
+end;
+
 { TCombineLatestStrategy<X, Y> }
 
 function TCombineLatestStrategy<X, Y>.OnNext(const Left: X): TZip<X, Y>;
@@ -678,6 +782,42 @@ begin
   end
   else
     Result := nil;
+end;
+
+{ TJoinStrategy<X, Y> }
+
+procedure TJoinStrategy<X, Y>.OnCompletedLeft;
+begin
+  FCompletedLeft := True;
+end;
+
+procedure TJoinStrategy<X, Y>.OnCompletedRight;
+begin
+  FCompletedRight := True;
+end;
+
+procedure TJoinStrategy<X, Y>.OnErrorLeft(Error: IThrowable);
+begin
+  FCompletedLeft := True;
+  if not Assigned(FError) then
+    FError := Error;
+end;
+
+procedure TJoinStrategy<X, Y>.OnErrorRight(Error: IThrowable);
+begin
+  FCompletedRight := True;
+  if not Assigned(FError) then
+    FError := Error;
+end;
+
+function TJoinStrategy<X, Y>.GetError: IThrowable;
+begin
+  Result := FError
+end;
+
+function TJoinStrategy<X, Y>.IsCompleted: Boolean;
+begin
+  Result := FCompletedLeft or FCompletedRight
 end;
 
 end.

@@ -89,6 +89,7 @@ type
     procedure ZipCompleted2;
     procedure ZipCompletedMultiThreaded;
     procedure ZipError1;
+    procedure ZipNFibersInSingleThread;
     procedure CombineLatest1;
     procedure WithLatestFrom1;
     procedure AMB1;
@@ -1348,10 +1349,10 @@ begin
   Check(IsEqual(FStream, ['A1', 'B2', 'C3']));
 
   R.OnCompleted;
-  Check(IsEqual(FStream, ['A1', 'B2', 'C3', 'completed']));
+  Check(IsEqual(FStream, ['A1', 'B2', 'C3']));
 
   L.OnNext('D');
-  Check(IsEqual(FStream, ['A1', 'B2', 'C3', 'completed']));
+  Check(IsEqual(FStream, ['A1', 'B2', 'C3', 'D4', 'completed']));
 
 end;
 
@@ -1505,32 +1506,44 @@ var
   OnNext: TOnNext<TZip<LongWord, string>>;
   OnCompleted: TOnCompleted;
   OnSubscribeValues: TOnSubscribe<string>;
+  Zip: TObservable<TZip<LongWord, string>>;
+  Completed: TEvent;
 begin
 
-  OnNext := procedure(const Data: TZip<LongWord, string>)
-  begin
-    FStream.Add(Format('%d:%s', [Data.A, Data.B]));
-  end;
+  Completed := TEvent.Create(nil, True, False, '');
 
-  OnCompleted := procedure
-  begin
-    FStream.Add('completed');
-  end;
+  try
 
-  OnSubscribeValues := procedure(O: IObserver<string>)
-  begin
-    O.OnNext('A');
-    O.OnNext('B');
-    O.OnCompleted;
-  end;
+    OnNext := procedure(const Data: TZip<LongWord, string>)
+    begin
+      FStream.Add(Format('%d:%s', [Data.A, Data.B]));
+    end;
 
-  Timer := Observable.Interval(1000);
-  Values := TObservable<string>.Create(OnSubscribeValues);
+    OnCompleted := procedure
+    begin
+      FStream.Add('completed');
+      Completed.SetEvent;
+    end;
 
-  Observable.Zip<LongWord, string>(Timer, Values).Subscribe(OnNext, OnCompleted);
+    OnSubscribeValues := procedure(O: IObserver<string>)
+    begin
+      O.OnNext('A');
+      O.OnNext('B');
+      O.OnCompleted;
+    end;
 
- // Check(IsEqual(FStream, ['1:A', '2:B', 'completed']));
+    Timer := Observable.Interval(100, TimeUnit.MILLISECONDS);
+    Values := TObservable<string>.Create(OnSubscribeValues);
 
+    Zip := Observable.Zip<LongWord, string>(Timer, Values);
+    Zip.Subscribe(OnNext, OnCompleted);
+
+    Check(Completed.WaitFor(1000) = wrSignaled, 'OnCompleted timeout');
+    Check(IsEqual(FStream, ['0:A', '1:B', 'completed']));
+
+  finally
+    Completed.Free;
+  end
 end;
 
 procedure TOperationsTests.ZipError1;
@@ -1578,6 +1591,60 @@ begin
 
   Check(IsEqual(FStream, ['1:A', '2:B', 'error: test']));
 
+end;
+
+procedure TOperationsTests.ZipNFibersInSingleThread;
+var
+  Timer: TObservable<LongWord>;
+  Values: TObservable<string>;
+  OnNext: TOnNext<TZip<LongWord, string>>;
+  OnCompleted: TOnCompleted;
+  OnSubscribeValues: TOnSubscribe<string>;
+  Zip: TObservable<TZip<LongWord, string>>;
+  Completed: TEvent;
+  ThreadId: LongWord;
+  I: Integer;
+begin
+
+  ThreadId := 0;
+
+  Completed := TEvent.Create(nil, True, False, '');
+
+  try
+
+    OnNext := procedure(const Data: TZip<LongWord, string>)
+    begin
+      ThreadId := TThread.CurrentThread.ThreadID;
+      FStream.Add(Format('%d', [ThreadId]));
+    end;
+
+    OnCompleted := procedure
+    begin
+      Completed.SetEvent;
+    end;
+
+    OnSubscribeValues := procedure(O: IObserver<string>)
+    begin
+      O.OnNext('A');
+      O.OnNext('B');
+      O.OnCompleted;
+    end;
+
+    Timer := Observable.Interval(100, TimeUnit.MILLISECONDS);
+    Values := TObservable<string>.Create(OnSubscribeValues);
+
+    Zip := Observable.Zip<LongWord, string>(Timer, Values);
+    Zip.Subscribe(OnNext, OnCompleted);
+
+    Check(Completed.WaitFor(1000) = wrSignaled, 'OnCompleted timeout');
+    CheckNotEquals(ThreadId, MainThreadID);
+    for I := 0 to FStream.Count-1 do
+      CheckEquals(IntToStr(ThreadId), FStream[I])
+
+
+  finally
+    Completed.Free;
+  end
 end;
 
 { TSmartVariableTests }

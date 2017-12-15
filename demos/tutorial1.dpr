@@ -6,38 +6,25 @@ program tutorial1;
 
 uses
   Rx,
-  System.SysUtils;
+  System.SysUtils,
+  StdHandlers in 'StdHandlers.pas';
 
 var
-  OnData: TOnNext<TZip<LongWord, string>>;
-  OnCompleted: TOnCompleted;
-
   Timer: TObservable<LongWord>;
   Input: TObservable<string>;
   Output: TObservable<TZip<LongWord, string>>;
 
 begin
 
-  OnData := procedure(const Data: TZip<LongWord, string>)
-  begin
-    WriteLn('');
-    WriteLn('Timestamp: ' + TimeToStr(Now));
-    WriteLn(Format('iter: %d     value: %s', [Data.A, Data.B]))
-  end;
-
-  OnCompleted := procedure
-  begin
-    WriteLn('');
-    WriteLn('Press ENTER to Exit');
-    Readln;
-  end;
-
   Timer := Observable.Interval(1, TimeUnit.SECONDS);
   Input := TObservable<string>.Just(['one', 'two', 'three', 'four', 'five']);
 
   { Build result data stream }
   Output := Observable.Zip<LongWord, string>(Timer, Input);
-  Output.Subscribe(OnData, OnCompleted);
+  Output.Subscribe(
+    StdHandlers.PrintString,
+    StdHandlers.PressEnter
+  );
   Output.WaitCompletition(INFINITE);
 
 end.

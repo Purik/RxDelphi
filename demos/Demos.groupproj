@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{555BA519-BCF2-454F-ADBA-7D5B4FF63877}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="tutorial1.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="tutorial2_map.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="tutorial1">
+        <MSBuild Projects="tutorial1.dproj"/>
+    </Target>
+    <Target Name="tutorial1:Clean">
+        <MSBuild Projects="tutorial1.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="tutorial1:Make">
+        <MSBuild Projects="tutorial1.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="tutorial2_map">
+        <MSBuild Projects="tutorial2_map.dproj"/>
+    </Target>
+    <Target Name="tutorial2_map:Clean">
+        <MSBuild Projects="tutorial2_map.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="tutorial2_map:Make">
+        <MSBuild Projects="tutorial2_map.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="tutorial1;tutorial2_map"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="tutorial1:Clean;tutorial2_map:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="tutorial1:Make;tutorial2_map:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

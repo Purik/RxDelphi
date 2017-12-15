@@ -412,8 +412,10 @@ procedure TOnErrorAction<T>.Emit;
 begin
   FContract.Lock;
   try
-    if Assigned(FContract.GetSubscriber) then
-      FContract.GetSubscriber.OnError(FThrowable)
+    if Assigned(FContract.GetSubscriber) then begin
+      FContract.GetSubscriber.OnError(FThrowable);
+      FContract.Unsubscribe;
+    end
     else
       FContract.Unsubscribe;
   finally
@@ -432,8 +434,10 @@ procedure TOnCompletedAction<T>.Emit;
 begin
   FContract.Lock;
   try
-    if Assigned(FContract.GetSubscriber) then
-      FContract.GetSubscriber.OnCompleted
+    if Assigned(FContract.GetSubscriber) then begin
+      FContract.GetSubscriber.OnCompleted;
+      FContract.Unsubscribe;
+    end
     else
       FContract.Unsubscribe;
   finally
@@ -571,8 +575,6 @@ var
 begin
   for Contract in Freeze do begin
     FScheduler.Invoke(TOnCompletedAction<T>.Create(Contract));
-    // follow Rx rule: contract have to be disabled since just moment
-    Contract.Unsubscribe;
   end;
 end;
 
@@ -582,8 +584,6 @@ var
 begin
   for Contract in Freeze do begin
     FScheduler.Invoke(TOnErrorAction<T>.Create(E, Contract));
-    // follow Rx rule: contract have to be disabled since just moment
-    Contract.Unsubscribe;
   end;
 end;
 

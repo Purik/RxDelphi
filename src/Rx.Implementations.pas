@@ -100,13 +100,14 @@ type
     function GetObservable: IObservable<T>;
   end;
 
-
   TSubscriberDecorator<T> = class(TInterfacedObject, ISubscriber<T>, IObserver<T>)
   strict private
     FSubscriber: ISubscriber<T>;
     FScheduler: IScheduler;
+    FLock: TCriticalSection;
+    FContract: IContract<T>;
   public
-    constructor Create(S: ISubscriber<T>; Scheduler: IScheduler);
+    constructor Create(S: ISubscriber<T>; Scheduler: IScheduler; Contract: IContract<T>);
     destructor Destroy; override;
     procedure OnNext(const A: T);
     procedure OnError(E: IThrowable);
@@ -144,10 +145,12 @@ type
 
   TOnSubscribeAction<T> = class(TInterfacedObject, IAction)
   strict private
-    FContract: IContract<T>;
+    FSubscriber: ISubscriber<T>;
     FRoutine: TOnSubscribe<T>;
+    FRoutine2: TOnSubscribe2<T>;
   public
-    constructor Create(Contract: IContract<T>; const Routine: TOnSubscribe<T>);
+    constructor Create(Subscriber: ISubscriber<T>; const Routine: TOnSubscribe<T>); overload;
+    constructor Create(Subscriber: ISubscriber<T>; const Routine: TOnSubscribe2<T>); overload;
     procedure Emit;
   end;
 
@@ -167,6 +170,7 @@ type
     FOnSubscribe2: TOnSubscribe2<T>;
     FName: string;
     function SubscribeInternal(OnNext: TOnNext<T>; const OnError: TOnError; const OnCompleted: TOnCompleted): ISubscription;
+    function FindContract(Subscr: ISubscriber<T>): IContract<T>;
   protected
     procedure Lock; inline;
     procedure Unlock; inline;
@@ -447,21 +451,27 @@ end;
 
 { TOnSubscribeAction<T> }
 
-constructor TOnSubscribeAction<T>.Create(Contract: IContract<T>; const Routine: TOnSubscribe<T>);
+constructor TOnSubscribeAction<T>.Create(Subscriber: ISubscriber<T>; const Routine: TOnSubscribe<T>);
 begin
+  FSubscriber := Subscriber;
+  FRoutine := Routine;
+end;
 
+constructor TOnSubscribeAction<T>.Create(Subscriber: ISubscriber<T>; const Routine: TOnSubscribe2<T>);
+begin
+  FSubscriber := Subscriber;
+  FRoutine2 := Routine;
 end;
 
 procedure TOnSubscribeAction<T>.Emit;
 begin
-  FContract.Lock;
   try
-    if Assigned(FContract.GetSubscriber) then
-      FRoutine(FContract.GetSubscriber)
-    else
-      FContract.Unsubscribe;
-  finally
-    FContract.Unlock
+    if Assigned(FRoutine) then
+        FRoutine(FSubscriber)
+      else if Assigned(FRoutine2) then
+        FRoutine2(FSubscriber)
+  except
+    FSubscriber.OnError(Observable.CatchException);
   end;
 end;
 
@@ -601,19 +611,21 @@ var
   Succ: Boolean;
   SubscribeOnScheduler: IScheduler;
   SubscriberDecorator: ISubscriber<T>;
+  Contract: IContract<T>;
+
 begin
   if OffOnSubscribe then
     Exit;
 
   Lock;
   SubscribeOnScheduler := FSubscribeOnScheduler;
+  Contract := FindContract(Subscriber);
   Unlock;
-  SubscriberDecorator := TSubscriberDecorator<T>.Create(Subscriber, FScheduler);
+  SubscriberDecorator := TSubscriberDecorator<T>.Create(Subscriber, FScheduler, Contract);
 
   if Assigned(FOnSubscribe) then
     if Assigned(SubscribeOnScheduler) then
-      //SubscribeOnScheduler.Invoke(TOnSubscribeAction<T>.Create);
-      raise Exception.Create('TODO')
+      SubscribeOnScheduler.Invoke(TOnSubscribeAction<T>.Create(SubscriberDecorator, FOnSubscribe))
     else begin
       try
         FOnSubscribe(SubscriberDecorator);
@@ -623,7 +635,7 @@ begin
     end;
   if Assigned(FOnSubscribe2) then
     if Assigned(SubscribeOnScheduler) then
-      raise Exception.Create('TODO')
+      SubscribeOnScheduler.Invoke(TOnSubscribeAction<T>.Create(SubscriberDecorator, FOnSubscribe2))
     else begin
       try
         FOnSubscribe2(SubscriberDecorator);
@@ -703,6 +715,22 @@ begin
   Unlock;
   OnSubscribe(Sub);
   Result := Contract;
+end;
+
+function TObservableImpl<T>.FindContract(Subscr: ISubscriber<T>): IContract<T>;
+var
+  I: Integer;
+begin
+  Result := nil;
+  Lock;
+  try
+    for I := 0 to FContracts.Count-1 do
+      if FContracts[I].GetSubscriber = Subscr then begin
+        Exit(FContracts[I]);
+      end;
+  finally
+    Unlock;
+  end;
 end;
 
 procedure TObservableImpl<T>.SetName(const Value: string);
@@ -870,10 +898,13 @@ end;
 
 { TSubscriberDecorator<T> }
 
-constructor TSubscriberDecorator<T>.Create(S: ISubscriber<T>; Scheduler: IScheduler);
+constructor TSubscriberDecorator<T>.Create(S: ISubscriber<T>; Scheduler: IScheduler;
+  Contract: IContract<T>);
 begin
   FSubscriber := S;
   FScheduler := Scheduler;
+  FLock := TCriticalSection.Create;
+  FContract := Contract;
 end;
 
 destructor TSubscriberDecorator<T>.Destroy;
@@ -881,6 +912,8 @@ begin
   if Assigned(FSubscriber) then begin
     FSubscriber := nil;
   end;
+  FContract := nil;
+  FLock.Free;
   inherited;
 end;
 
@@ -905,48 +938,49 @@ begin
 end;
 
 procedure TSubscriberDecorator<T>.OnCompleted;
-var
-  Contract: TContractImpl<T>;
 begin
-  if Assigned(FSubscriber) then begin
-    if Supports(FScheduler, StdSchedulers.ICurrentThreadScheduler) then
-      FSubscriber.OnCompleted
-    else begin
-      Contract := TContractImpl<T>.Create;
-      Contract.SetSubscriber(FSubscriber);
-      FScheduler.Invoke(TOnCompletedAction<T>.Create(Contract));
+  FLock.Acquire;
+  try
+    if Assigned(FSubscriber) then begin
+      if Supports(FScheduler, StdSchedulers.ICurrentThreadScheduler) then
+        FSubscriber.OnCompleted
+      else begin
+        FScheduler.Invoke(TOnCompletedAction<T>.Create(FContract));
+      end;
+      FSubscriber := nil;
     end;
-    FSubscriber.Unsubscribe;
-    FSubscriber := nil;
+  finally
+    FLock.Release
   end;
 end;
 
 procedure TSubscriberDecorator<T>.OnError(E: IThrowable);
-var
-  Contract: TContractImpl<T>;
 begin
-  if Assigned(FSubscriber) then begin
-    if Supports(FScheduler, StdSchedulers.ICurrentThreadScheduler) then
-      FSubscriber.OnError(E)
-    else begin
-      Contract := TContractImpl<T>.Create;
-      Contract.SetSubscriber(FSubscriber);
-      FScheduler.Invoke(TOnErrorAction<T>.Create(E, Contract));
+  FLock.Acquire;
+  try
+    if Assigned(FSubscriber) then begin
+      if Supports(FScheduler, StdSchedulers.ICurrentThreadScheduler) then
+        FSubscriber.OnError(E)
+      else begin
+        FScheduler.Invoke(TOnErrorAction<T>.Create(E, FContract));
+      end;
+      FSubscriber := nil;
     end;
-    FSubscriber.Unsubscribe;
-    FSubscriber := nil;
+  finally
+    FLock.Release;
   end;
 end;
 
 procedure TSubscriberDecorator<T>.OnNext(const A: T);
-var
-  Contract: TContractImpl<T>;
 begin
-  if Assigned(FSubscriber) then begin
-    // work through contract protect from memory leaks
-    Contract := TContractImpl<T>.Create;
-    Contract.SetSubscriber(FSubscriber);
-    FScheduler.Invoke(TOnNextAction<T>.Create(A, Contract));
+  FLock.Acquire;
+  try
+    if Assigned(FSubscriber) then begin
+      // work through contract protect from memory leaks
+      FScheduler.Invoke(TOnNextAction<T>.Create(A, FContract));
+    end;
+  finally
+    FLock.Release
   end;
 end;
 

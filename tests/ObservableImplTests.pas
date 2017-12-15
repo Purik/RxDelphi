@@ -2218,7 +2218,7 @@ begin
   Th.Start;
   Sleep(5000);
 
-  CheckFalse(ThreadID = MainThreadID);
+  CheckFalse(ThreadID = MainThreadID, 'thread problem');
   Expected := 'next:' + IntToStr(ThreadID);
   Check(IsEqual(FStream, [Expected, Expected, 'completed:' + IntToStr(ThreadID)]));
 

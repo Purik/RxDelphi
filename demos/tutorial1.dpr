@@ -15,7 +15,6 @@ var
   Output: TObservable<TZip<LongWord, string>>;
 
 begin
-
   Timer := Observable.Interval(1, TimeUnit.SECONDS);
   Input := TObservable<string>.Just(['one', 'two', 'three', 'four', 'five']);
 

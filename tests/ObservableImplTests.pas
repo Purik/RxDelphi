@@ -1507,7 +1507,12 @@ var
   OnCompleted: TOnCompleted;
   OnSubscribeValues: TOnSubscribe<string>;
   Zip: TObservable<TZip<LongWord, string>>;
+  Completed: TEvent;
 begin
+
+  Completed := TEvent.Create(nil, True, False, '');
+
+  try
 
   OnNext := procedure(const Data: TZip<LongWord, string>)
   begin
@@ -1517,6 +1522,7 @@ begin
   OnCompleted := procedure
   begin
     FStream.Add('completed');
+    Completed.SetEvent;
   end;
 
   OnSubscribeValues := procedure(O: IObserver<string>)
@@ -1526,14 +1532,18 @@ begin
     O.OnCompleted;
   end;
 
-  Timer := Observable.Interval(1000);
+  Timer := Observable.Interval(100, TimeUnit.MILLISECONDS);
   Values := TObservable<string>.Create(OnSubscribeValues);
 
   Zip := Observable.Zip<LongWord, string>(Timer, Values);
   Zip.Subscribe(OnNext, OnCompleted);
 
-  Check(IsEqual(FStream, ['1:A', '2:B', 'completed']));
+  Check(Completed.WaitFor(1000) = wrSignaled, 'OnCompleted timeout');
+  Check(IsEqual(FStream, ['0:A', '0:B', 'completed']));
 
+  finally
+    Completed.Free;
+  end
 end;
 
 procedure TOperationsTests.ZipError1;

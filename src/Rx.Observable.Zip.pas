@@ -20,18 +20,28 @@ type
   IJoinStrategy<X, Y> = interface
     function OnNext(const Left: X): TZip<X, Y>; overload;
     function OnNext(const Right: Y): TZip<X, Y>; overload;
+    function OnCompletedLeft: Boolean;
+    function OnCompletedRight: Boolean;
+    function OnErrorLeft(Error: IThrowable): Boolean;
+    function OnErrorRight(Error: IThrowable): Boolean;
   end;
 
   TJoinStrategy<X, Y> = class(TInterfacedObject, IJoinStrategy<X, Y>)
   strict private
-    FCompleted: Boolean;
+    FCompletedLeft: Boolean;
+    FCompletedRight: Boolean;
     FError: IThrowable;
   protected
-    property Completed: Boolean read FCompleted write FCompleted;
+    property CompletedLeft: Boolean read FCompletedLeft write FCompletedLeft;
+    property CompletedRight: Boolean read FCompletedLeft write FCompletedLeft;
     property Error: IThrowable read FError write FError;
   public
     function OnNext(const Left: X): TZip<X, Y>; overload; dynamic; abstract;
     function OnNext(const Right: Y): TZip<X, Y>; overload; dynamic; abstract;
+    function OnCompletedLeft: Boolean; dynamic;
+    function OnCompletedRight: Boolean; dynamic;
+    function OnErrorLeft(Error: IThrowable): Boolean; dynamic;
+    function OnErrorRight(Error: IThrowable): Boolean; dynamic;
   end;
 
   TSyncStrategy<X, Y> = class(TJoinStrategy<X, Y>)
@@ -43,6 +53,10 @@ type
     destructor Destroy; override;
     function OnNext(const Left: X): TZip<X, Y>; overload; override;
     function OnNext(const Right: Y): TZip<X, Y>; overload; override;
+    function OnCompletedLeft: Boolean; override;
+    function OnCompletedRight: Boolean; override;
+    function OnErrorLeft(Error: IThrowable): Boolean; override;
+    function OnErrorRight(Error: IThrowable): Boolean; override;
   end;
 
   TCombineLatestStrategy<X, Y> = class(TJoinStrategy<X, Y>)
@@ -128,6 +142,10 @@ type
     procedure SetStrategy(Value: IJoinStrategy<X, Y>);
     procedure RouteLeftFiberExecute(Fiber: TCustomFiber);
     procedure RouteRightFiberExecute(Fiber: TCustomFiber);
+    procedure OnErrorLeft(E: IThrowable);
+    procedure OnErrorRight(E: IThrowable);
+    procedure OnCompletedLeft;
+    procedure OnCompletedRight;
   public
     constructor Create(Left: IObservable<X>; Right: IObservable<Y>;
       const Routine: TOnNextRoutine; const OnError: TOnErrorRoutine;
@@ -208,14 +226,14 @@ begin
   FLeftIcp := TInterceptor<X>.Create;
   with FLeftIcp do begin
     FOnNextIntercept := Self.OnNext;
-    FOnErrorIntercept := Self.OnError;
-    FOnCompletedIntercept := Self.OnCompleted
+    FOnErrorIntercept := Self.OnErrorLeft;
+    FOnCompletedIntercept := Self.OnCompletedLeft;
   end;
   FRightIcp := TInterceptor<Y>.Create;
   with FRightIcp do begin
     FOnNextIntercept := Self.OnNextRight;
-    FOnErrorIntercept := Self.OnError;
-    FOnCompletedIntercept := Self.OnCompleted
+    FOnErrorIntercept := Self.OnErrorRight;
+    FOnCompletedIntercept := Self.OnCompletedRight;
   end;
   //
   FRoutine := Routine;
@@ -345,6 +363,66 @@ end;
 procedure TJoiner<X, Y>.SetStrategy(Value: IJoinStrategy<X, Y>);
 begin
   FStrategy := Value;
+end;
+
+procedure TJoiner<X, Y>.OnErrorLeft(E: IThrowable);
+begin
+  if Route then
+    RouteLeft.OnError(E)
+  else begin
+    Lock;
+    try
+      if GetStrategy.OnErrorLeft(E) then
+        FOnError(E)
+    finally
+      Unlock;
+    end;
+  end;
+end;
+
+procedure TJoiner<X, Y>.OnErrorRight(E: IThrowable);
+begin
+  if Route then
+    RouteRight.OnError(E)
+  else begin
+    Lock;
+    try
+      if GetStrategy.OnErrorRight(E) then
+        FOnError(E)
+    finally
+      Unlock;
+    end;
+  end;
+end;
+
+procedure TJoiner<X, Y>.OnCompletedLeft;
+begin
+  if Route then
+    RouteLeft.OnCompleted
+  else begin
+    Lock;
+    try
+      if GetStrategy.OnCompletedLeft then
+        FOnCompleted
+    finally
+      Unlock;
+    end;
+  end;
+end;
+
+procedure TJoiner<X, Y>.OnCompletedRight;
+begin
+  if Route then
+    RouteRight.OnCompleted
+  else begin
+    Lock;
+    try
+      if GetStrategy.OnCompletedRight then
+        FOnCompleted
+    finally
+      Unlock;
+    end;
+  end;
 end;
 
 procedure TJoiner<X, Y>.UnLock;
@@ -547,6 +625,32 @@ begin
     FRightBuffer.Add(Right)
 end;
 
+function TSyncStrategy<X, Y>.OnCompletedLeft: Boolean;
+begin
+  Result := inherited OnCompletedLeft;
+  if Result then begin
+    if CompletedLeft then
+      Result := FLeftBuffer.Count then
+
+
+  end;
+end;
+
+function TSyncStrategy<X, Y>.OnCompletedRight: Boolean;
+begin
+  Result := inherited OnCompletedRight;
+end;
+
+function TSyncStrategy<X, Y>.OnErrorLeft(Error: IThrowable): Boolean;
+begin
+  Result := inherited OnErrorLeft(Error);
+end;
+
+function TSyncStrategy<X, Y>.OnErrorRight(Error: IThrowable): Boolean;
+begin
+  Result := inherited OnErrorRight(Error);
+end;
+
 { TCombineLatestStrategy<X, Y> }
 
 function TCombineLatestStrategy<X, Y>.OnNext(const Left: X): TZip<X, Y>;
@@ -678,6 +782,36 @@ begin
   end
   else
     Result := nil;
+end;
+
+{ TJoinStrategy<X, Y> }
+
+function TJoinStrategy<X, Y>.OnCompletedLeft: Boolean;
+begin
+  FCompletedLeft := True;
+  Result := True;
+end;
+
+function TJoinStrategy<X, Y>.OnCompletedRight: Boolean;
+begin
+  FCompletedRight := True;
+  Result := False;
+end;
+
+function TJoinStrategy<X, Y>.OnErrorLeft(Error: IThrowable): Boolean;
+begin
+  FCompletedLeft := True;
+  if not Assigned(FError) then
+    FError := Error;
+  Result := True;
+end;
+
+function TJoinStrategy<X, Y>.OnErrorRight(Error: IThrowable): Boolean;
+begin
+  FCompletedRight := True;
+  if not Assigned(FError) then
+    FError := Error;
+  Result := True;
 end;
 
 end.

@@ -2133,7 +2133,51 @@ begin
 end;
 
 procedure TSchedulersTests.NewThreadScheduler;
+var
+  O: TObservable<Integer>;
+  OnNext: TOnNext<Integer>;
+  OnCompleted: TOnCompleted;
+  Th: TThread;
+  ThreadID: LongWord;
+  CompletedOK: Boolean;
+  I: Integer;
 begin
+
+  ThreadID := 0;
+  CompletedOK := False;
+
+  OnNext := procedure(const Data: Integer)
+  begin
+    if ThreadID = 0 then
+      ThreadID := TThread.CurrentThread.ThreadID;
+    FStream.Add(IntToStr(TThread.CurrentThread.ThreadID));
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add(IntToStr(TThread.CurrentThread.ThreadID));
+    CompletedOK := True;
+  end;
+
+  O.ScheduleOn(StdSchedulers.CreateNewThreadScheduler);
+  O.Subscribe(OnNext, OnCompleted);
+
+  Th := TThread.CreateAnonymousThread(
+  procedure
+  begin
+    O.OnNext(1);
+    O.OnNext(2);
+    O.OnCompleted;
+    O.OnNext(3);
+  end);
+  Th.Start;
+  Sleep(5000);
+
+  CheckTrue(CompletedOK);
+  CheckNotEquals(MainThreadID, ThreadID);
+  CheckEquals(3, FStream.Count);
+  for I := 0 to FStream.Count-1 do
+    CheckEquals(I, FStream.IndexOf(FStream[I]))
 
 end;
 
@@ -2193,7 +2237,52 @@ begin
 end;
 
 procedure TSchedulersTests.ThreadPoolScheduler;
+var
+  O: TObservable<Integer>;
+  OnNext: TOnNext<Integer>;
+  OnCompleted: TOnCompleted;
+  Th: TThread;
+  ThreadID: LongWord;
+  CompletedOK: Boolean;
+  I: Integer;
 begin
+
+  ThreadID := 0;
+  CompletedOK := False;
+
+  OnNext := procedure(const Data: Integer)
+  begin
+    if ThreadID = 0 then
+      ThreadID := TThread.CurrentThread.ThreadID;
+    FStream.Add(IntToStr(TThread.CurrentThread.ThreadID));
+    Sleep(1000)
+  end;
+
+  OnCompleted := procedure
+  begin
+    FStream.Add(IntToStr(TThread.CurrentThread.ThreadID));
+    CompletedOK := True;
+  end;
+
+  O.ScheduleOn(StdSchedulers.CreateThreadPoolScheduler(5));
+  O.Subscribe(OnNext, OnCompleted);
+
+  Th := TThread.CreateAnonymousThread(
+  procedure
+  begin
+    O.OnNext(1);
+    O.OnNext(2);
+    O.OnCompleted;
+    O.OnNext(3);
+  end);
+  Th.Start;
+  Sleep(5000);
+
+  CheckTrue(CompletedOK);
+  CheckNotEquals(MainThreadID, ThreadID);
+  CheckEquals(3, FStream.Count);
+  for I := 0 to FStream.Count-1 do
+    CheckEquals(I, FStream.IndexOf(FStream[I]))
 
 end;
 

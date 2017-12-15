@@ -1539,7 +1539,7 @@ begin
   Zip.Subscribe(OnNext, OnCompleted);
 
   Check(Completed.WaitFor(1000) = wrSignaled, 'OnCompleted timeout');
-  Check(IsEqual(FStream, ['0:A', '0:B', 'completed']));
+  Check(IsEqual(FStream, ['0:A', '1:B', 'completed']));
 
   finally
     Completed.Free;

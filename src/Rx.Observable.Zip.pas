@@ -20,10 +20,12 @@ type
   IJoinStrategy<X, Y> = interface
     function OnNext(const Left: X): TZip<X, Y>; overload;
     function OnNext(const Right: Y): TZip<X, Y>; overload;
-    function OnCompletedLeft: Boolean;
-    function OnCompletedRight: Boolean;
-    function OnErrorLeft(Error: IThrowable): Boolean;
-    function OnErrorRight(Error: IThrowable): Boolean;
+    procedure OnCompletedLeft;
+    procedure OnCompletedRight;
+    procedure OnErrorLeft(Error: IThrowable);
+    procedure OnErrorRight(Error: IThrowable);
+    function GetError: IThrowable;
+    function IsCompleted: Boolean;
   end;
 
   TJoinStrategy<X, Y> = class(TInterfacedObject, IJoinStrategy<X, Y>)
@@ -33,15 +35,17 @@ type
     FError: IThrowable;
   protected
     property CompletedLeft: Boolean read FCompletedLeft write FCompletedLeft;
-    property CompletedRight: Boolean read FCompletedLeft write FCompletedLeft;
+    property CompletedRight: Boolean read FCompletedRight write FCompletedRight;
     property Error: IThrowable read FError write FError;
   public
     function OnNext(const Left: X): TZip<X, Y>; overload; dynamic; abstract;
     function OnNext(const Right: Y): TZip<X, Y>; overload; dynamic; abstract;
-    function OnCompletedLeft: Boolean; dynamic;
-    function OnCompletedRight: Boolean; dynamic;
-    function OnErrorLeft(Error: IThrowable): Boolean; dynamic;
-    function OnErrorRight(Error: IThrowable): Boolean; dynamic;
+    procedure OnCompletedLeft; dynamic;
+    procedure OnCompletedRight; dynamic;
+    procedure OnErrorLeft(Error: IThrowable); dynamic;
+    procedure OnErrorRight(Error: IThrowable); dynamic;
+    function GetError: IThrowable; dynamic;
+    function IsCompleted: Boolean; dynamic;
   end;
 
   TSyncStrategy<X, Y> = class(TJoinStrategy<X, Y>)
@@ -53,10 +57,7 @@ type
     destructor Destroy; override;
     function OnNext(const Left: X): TZip<X, Y>; overload; override;
     function OnNext(const Right: Y): TZip<X, Y>; overload; override;
-    function OnCompletedLeft: Boolean; override;
-    function OnCompletedRight: Boolean; override;
-    function OnErrorLeft(Error: IThrowable): Boolean; override;
-    function OnErrorRight(Error: IThrowable): Boolean; override;
+    function IsCompleted: Boolean; override;
   end;
 
   TCombineLatestStrategy<X, Y> = class(TJoinStrategy<X, Y>)
@@ -146,6 +147,7 @@ type
     procedure OnErrorRight(E: IThrowable);
     procedure OnCompletedLeft;
     procedure OnCompletedRight;
+    procedure CheckCompletition;
   public
     constructor Create(Left: IObservable<X>; Right: IObservable<Y>;
       const Routine: TOnNextRoutine; const OnError: TOnErrorRoutine;
@@ -309,10 +311,20 @@ begin
       Zip := GetStrategy.OnNext(Right);
       if Assigned(Zip) then
         FRoutine(Zip);
+      CheckCompletition
     finally
       Unlock;
     end;
   end;
+end;
+
+procedure TJoiner<X, Y>.CheckCompletition;
+begin
+  if GetStrategy.IsCompleted then
+    if GetStrategy.GetError <> nil then
+      FOnError(GetStrategy.GetError)
+    else
+      FOnCompleted;
 end;
 
 procedure TJoiner<X, Y>.OnNextRight(const Right: Y);
@@ -372,8 +384,9 @@ begin
   else begin
     Lock;
     try
-      if GetStrategy.OnErrorLeft(E) then
-        FOnError(E)
+      GetStrategy.OnErrorLeft(E);
+      if GetStrategy.IsCompleted then
+        FOnError(GetStrategy.GetError)
     finally
       Unlock;
     end;
@@ -387,8 +400,9 @@ begin
   else begin
     Lock;
     try
-      if GetStrategy.OnErrorRight(E) then
-        FOnError(E)
+      GetStrategy.OnErrorRight(E);
+      if GetStrategy.IsCompleted then
+        FOnError(GetStrategy.GetError)
     finally
       Unlock;
     end;
@@ -402,7 +416,8 @@ begin
   else begin
     Lock;
     try
-      if GetStrategy.OnCompletedLeft then
+      GetStrategy.OnCompletedLeft;
+      if GetStrategy.IsCompleted then
         FOnCompleted
     finally
       Unlock;
@@ -417,7 +432,8 @@ begin
   else begin
     Lock;
     try
-      if GetStrategy.OnCompletedRight then
+      GetStrategy.OnCompletedRight;
+      if GetStrategy.IsCompleted then
         FOnCompleted
     finally
       Unlock;
@@ -441,9 +457,9 @@ begin
     Lock;
     try
       Zip := GetStrategy.OnNext(Left);
-      if Assigned(Zip) then begin
+      if Assigned(Zip) then
         FRoutine(Zip);
-      end;
+      CheckCompletition;
     finally
       Unlock;
     end;
@@ -625,30 +641,14 @@ begin
     FRightBuffer.Add(Right)
 end;
 
-function TSyncStrategy<X, Y>.OnCompletedLeft: Boolean;
+function TSyncStrategy<X, Y>.IsCompleted: Boolean;
 begin
-  Result := inherited OnCompletedLeft;
-  if Result then begin
-    if CompletedLeft then
-      Result := FLeftBuffer.Count then
-
-
-  end;
-end;
-
-function TSyncStrategy<X, Y>.OnCompletedRight: Boolean;
-begin
-  Result := inherited OnCompletedRight;
-end;
-
-function TSyncStrategy<X, Y>.OnErrorLeft(Error: IThrowable): Boolean;
-begin
-  Result := inherited OnErrorLeft(Error);
-end;
-
-function TSyncStrategy<X, Y>.OnErrorRight(Error: IThrowable): Boolean;
-begin
-  Result := inherited OnErrorRight(Error);
+  if CompletedLeft then
+    Result := FLeftBuffer.Count = 0
+  else if CompletedRight then
+    Result := FRightBuffer.Count = 0
+  else
+    Result := False;
 end;
 
 { TCombineLatestStrategy<X, Y> }
@@ -786,32 +786,38 @@ end;
 
 { TJoinStrategy<X, Y> }
 
-function TJoinStrategy<X, Y>.OnCompletedLeft: Boolean;
+procedure TJoinStrategy<X, Y>.OnCompletedLeft;
 begin
   FCompletedLeft := True;
-  Result := True;
 end;
 
-function TJoinStrategy<X, Y>.OnCompletedRight: Boolean;
+procedure TJoinStrategy<X, Y>.OnCompletedRight;
 begin
   FCompletedRight := True;
-  Result := False;
 end;
 
-function TJoinStrategy<X, Y>.OnErrorLeft(Error: IThrowable): Boolean;
+procedure TJoinStrategy<X, Y>.OnErrorLeft(Error: IThrowable);
 begin
   FCompletedLeft := True;
   if not Assigned(FError) then
     FError := Error;
-  Result := True;
 end;
 
-function TJoinStrategy<X, Y>.OnErrorRight(Error: IThrowable): Boolean;
+procedure TJoinStrategy<X, Y>.OnErrorRight(Error: IThrowable);
 begin
   FCompletedRight := True;
   if not Assigned(FError) then
     FError := Error;
-  Result := True;
+end;
+
+function TJoinStrategy<X, Y>.GetError: IThrowable;
+begin
+  Result := FError
+end;
+
+function TJoinStrategy<X, Y>.IsCompleted: Boolean;
+begin
+  Result := FCompletedLeft or FCompletedRight
 end;
 
 end.

@@ -144,6 +144,7 @@ type
     procedure OnCompleted;
     procedure ScheduleOn(Scheduler: IScheduler);
     procedure SetName(const Value: string);
+    function WaitCompletition(const Timeout: LongWord): Boolean;
   end;
 
 
@@ -362,6 +363,9 @@ type
 
     // debug-only purposes
     procedure SetName(const Value: string);
+
+    // others
+    function WaitCompletition(const Timeout: LongWord): Boolean;
   end;
 
 
@@ -885,6 +889,11 @@ function TObservable<T>.TakeLast(Count: Integer): TObservable<T>;
 begin
   Result.Impl := Rx.Observable.Take.TTakeLast<T>.Create(GetImpl, Count);
   Refs.Append(Result.Impl);
+end;
+
+function TObservable<T>.WaitCompletition(const Timeout: LongWord): Boolean;
+begin
+  Result := GetImpl.WaitCompletition(Timeout)
 end;
 
 function TObservable<T>.WithLatestFrom<Y>(

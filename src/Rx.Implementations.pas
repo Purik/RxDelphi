@@ -169,6 +169,7 @@ type
     FOnSubscribe: TOnSubscribe<T>;
     FOnSubscribe2: TOnSubscribe2<T>;
     FName: string;
+    FOnCompleted: TEvent;
     function SubscribeInternal(OnNext: TOnNext<T>; const OnError: TOnError; const OnCompleted: TOnCompleted): ISubscription;
     function FindContract(Subscr: ISubscriber<T>): IContract<T>;
   protected
@@ -202,6 +203,7 @@ type
     procedure ScheduleOn(Scheduler: IScheduler);
     procedure SubscribeOn(Scheduler: IScheduler);
     procedure DoOnNext(const Cb: TOnNext<T>);
+    function WaitCompletition(const Timeout: LongWord): Boolean;
   end;
 
   TIntervalThread = class(TThread)
@@ -485,6 +487,7 @@ begin
   FScheduler := TCurrentThreadScheduler.Create;
   FContracts := TList<IContract>.Create;
   FInputs := TList<IFromSubscription>.Create;
+  FOnCompleted := TEvent.Create(nil, True, False, '');
 end;
 
 constructor TObservableImpl<T>.Create(const OnSubscribe: TOnSubscribe<T>);
@@ -518,12 +521,18 @@ begin
   FInputs.Free;
   FScheduler := nil;
   FLock.Free;
+  FOnCompleted.Free;
   inherited;
 end;
 
 procedure TObservableImpl<T>.DoOnNext(const Cb: TOnNext<T>);
 begin
   FDoOnNext := Cb;
+end;
+
+function TObservableImpl<T>.WaitCompletition(const Timeout: LongWord): Boolean;
+begin
+  Result := FOnCompleted.WaitFor(Timeout) = wrSignaled
 end;
 
 function TObservableImpl<T>.Freeze: tContractCollection;
@@ -586,6 +595,7 @@ begin
   for Contract in Freeze do begin
     FScheduler.Invoke(TOnCompletedAction<T>.Create(Contract));
   end;
+  FOnCompleted.SetEvent;
 end;
 
 procedure TObservableImpl<T>.OnError(E: IThrowable);
@@ -595,6 +605,7 @@ begin
   for Contract in Freeze do begin
     FScheduler.Invoke(TOnErrorAction<T>.Create(E, Contract));
   end;
+  FOnCompleted.SetEvent;
 end;
 
 procedure TObservableImpl<T>.OnNext(const Data: T);

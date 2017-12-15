@@ -205,12 +205,14 @@ type
     FSubscription: ISubscriber<LongWord>;
     FDelay: LongWord;
     FInitialDelay: LongWord;
+    FOnTerminate: TEvent;
   protected
     procedure Execute; override;
   public
     constructor Create(Subscription: ISubscriber<LongWord>; Delay: LongWord;
       InitialDelay: LongWord);
     destructor Destroy; override;
+    procedure Terminate; reintroduce;
   end;
 
   TIntervalObserver = class(TObservableImpl<LongWord>)
@@ -1025,6 +1027,7 @@ end;
 constructor TIntervalThread.Create(Subscription: ISubscriber<LongWord>;
   Delay: LongWord; InitialDelay: LongWord);
 begin
+  FOnTerminate := TEvent.Create(nil, True, False, '');
   inherited Create(False);
   FSubscription := Subscription;
   FDelay := Delay;
@@ -1034,7 +1037,14 @@ end;
 destructor TIntervalThread.Destroy;
 begin
   FSubscription := nil;
+  FOnTerminate.Free;
   inherited;
+end;
+
+procedure TIntervalThread.Terminate;
+begin
+  inherited Terminate;
+  FOnTerminate.SetEvent;
 end;
 
 procedure TIntervalThread.Execute;
@@ -1042,9 +1052,13 @@ var
   Iter: LongWord;
 begin
   Iter := 0;
-  Sleep(FInitialDelay);
+  if FOnTerminate.WaitFor(FInitialDelay) = wrSignaled then begin
+    Exit;
+  end;
   while (not Terminated) and (not FSubscription.IsUnsubscribed) do begin
-    Sleep(FDelay);
+    if FOnTerminate.WaitFor(FDelay) = wrSignaled then begin
+      Exit;
+    end;
     FSubscription.OnNext(Iter);
     Inc(Iter);
   end

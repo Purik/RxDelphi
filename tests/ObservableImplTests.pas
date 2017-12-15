@@ -89,6 +89,7 @@ type
     procedure ZipCompleted2;
     procedure ZipCompletedMultiThreaded;
     procedure ZipError1;
+    procedure ZipNFibersInSingleThread;
     procedure CombineLatest1;
     procedure WithLatestFrom1;
     procedure AMB1;
@@ -1505,6 +1506,7 @@ var
   OnNext: TOnNext<TZip<LongWord, string>>;
   OnCompleted: TOnCompleted;
   OnSubscribeValues: TOnSubscribe<string>;
+  Zip: TObservable<TZip<LongWord, string>>;
 begin
 
   OnNext := procedure(const Data: TZip<LongWord, string>)
@@ -1527,9 +1529,10 @@ begin
   Timer := Observable.Interval(1000);
   Values := TObservable<string>.Create(OnSubscribeValues);
 
-  Observable.Zip<LongWord, string>(Timer, Values).Subscribe(OnNext, OnCompleted);
+  Zip := Observable.Zip<LongWord, string>(Timer, Values);
+  Zip.Subscribe(OnNext, OnCompleted);
 
- // Check(IsEqual(FStream, ['1:A', '2:B', 'completed']));
+  Check(IsEqual(FStream, ['1:A', '2:B', 'completed']));
 
 end;
 
@@ -1578,6 +1581,11 @@ begin
 
   Check(IsEqual(FStream, ['1:A', '2:B', 'error: test']));
 
+end;
+
+procedure TOperationsTests.ZipNFibersInSingleThread;
+begin
+  Check(False, 'TODO');
 end;
 
 { TSmartVariableTests }

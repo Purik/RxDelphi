@@ -16,8 +16,6 @@ var
   Categorize: TMap<TPerson, string>;
 
 begin
-  // Check memory leaks after application termination
-  ReportMemoryLeaksOnShutdown := True;
 
   { Extract ages of persons and categorize them by generation types}
   Categorize := function(const Person: TPerson): string
@@ -34,9 +32,12 @@ begin
   Input := TObservable<TPerson>.Create(StdHandlers.RandomPersons);
   Output := Input.Map<string>(Categorize);
   Output.Subscribe(
-    StdHandlers.WriteLn,
-    StdHandlers.PressEnter
+    StdHandlers.WriteLn
   );
-  Output.WaitCompletition(INFINITE)
+
+  WriteLn('Press ENTER to Exit');
+  Readln;
+  if TRefObject.RefCount > 0 then
+    raise MemLeakError.Create('Memory leaks');
 
 end.

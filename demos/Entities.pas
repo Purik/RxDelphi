@@ -1,10 +1,20 @@
 unit Entities;
 
 interface
+uses SysUtils;
 
 type
 
-  TPerson = class
+  MemLeakError = class(Exception);
+
+  TRefObject = class
+  public
+    constructor Create;
+    destructor Destroy; override;
+    class threadvar RefCount: Integer;
+  end;
+
+  TPerson = class(TRefObject)
   const
     DATETIME_FORMAT = 'dd/mm/yyyy';
   strict private
@@ -24,13 +34,13 @@ type
   end;
 
 implementation
-uses SysUtils;
 
 { TPerson }
 
 constructor TPerson.Create(const FirstName: string; LastName: string;
   const BirthDay: TDateTime);
 begin
+  inherited Create;
   FFirstName := FirstName;
   FLastName := LastName;
   FBirthDay := BirthDay;
@@ -39,6 +49,7 @@ end;
 constructor TPerson.Create(const FirstName: string; LastName: string;
   const BirthDay: string);
 begin
+  inherited Create;
   FFirstName := FirstName;
   FLastName := LastName;
 
@@ -47,6 +58,18 @@ end;
 function TPerson.GetAge: LongWord;
 begin
   Result := 0;
+end;
+
+{ TRefObject }
+
+constructor TRefObject.Create;
+begin
+  AtomicIncrement(RefCount)
+end;
+
+destructor TRefObject.Destroy;
+begin
+  AtomicDecrement(RefCount)
 end;
 
 end.

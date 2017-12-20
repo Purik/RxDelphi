@@ -9,6 +9,9 @@
         <Projects Include="tutorial2_map.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="tutorial3_schedulers.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -35,14 +38,23 @@
     <Target Name="tutorial2_map:Make">
         <MSBuild Projects="tutorial2_map.dproj" Targets="Make"/>
     </Target>
+    <Target Name="tutorial3_schedulers">
+        <MSBuild Projects="tutorial3_schedulers.dproj"/>
+    </Target>
+    <Target Name="tutorial3_schedulers:Clean">
+        <MSBuild Projects="tutorial3_schedulers.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="tutorial3_schedulers:Make">
+        <MSBuild Projects="tutorial3_schedulers.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="tutorial1;tutorial2_map"/>
+        <CallTarget Targets="tutorial1;tutorial2_map;tutorial3_schedulers"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="tutorial1:Clean;tutorial2_map:Clean"/>
+        <CallTarget Targets="tutorial1:Clean;tutorial2_map:Clean;tutorial3_schedulers:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="tutorial1:Make;tutorial2_map:Make"/>
+        <CallTarget Targets="tutorial1:Make;tutorial2_map:Make;tutorial3_schedulers:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

@@ -33,6 +33,15 @@ type
     property Age: LongWord read GetAge;
   end;
 
+  TTwit = class(TRefObject)
+  strict private
+    FText: string;
+    FAuthor: string;
+  public
+    property Author: string read FAuthor;
+    property Text: string read FText;
+  end;
+
 implementation
 
 { TPerson }

@@ -393,6 +393,8 @@ begin
 end;
 
 procedure TOnNextAction<T>.Emit;
+var
+  Subscriber: IObserver<T>;
 begin
   FContract.Lock;
   try
@@ -856,11 +858,14 @@ end;
 procedure TSubscriptionImpl.Unsubscribe;
 begin
   FLock.Acquire;
-  if not FIsUnsubscribed then begin
-    FIsUnsubscribed := True;
-    UnsubscribeInterceptor;
+  try
+    if not FIsUnsubscribed then begin
+      FIsUnsubscribed := True;
+      UnsubscribeInterceptor;
+    end;
+  finally
+    FLock.Release;
   end;
-  FLock.Release;
 end;
 
 procedure TSubscriptionImpl.UnsubscribeInterceptor;

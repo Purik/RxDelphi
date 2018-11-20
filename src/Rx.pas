@@ -142,6 +142,7 @@ type
     procedure OnError(E: IThrowable);
     procedure OnCompleted;
     procedure ScheduleOn(Scheduler: IScheduler);
+    procedure SubscribeOn(Scheduler: IScheduler);
     procedure SetName(const Value: string);
     function WaitCompletition(const Timeout: LongWord): Boolean;
   end;
@@ -249,7 +250,12 @@ type
     ///	<summary>
     ///  Set scheduler for producing data flow to subscribers - upstream scheduling
     ///	</summary>
-    procedure ScheduleOn(Scheduler: IScheduler);
+    function ScheduleOn(Scheduler: IScheduler): TObservable<T>;
+
+    ///	<summary>
+    ///  Set scheduler for producing data on subscribe event - downstream scheduling
+    ///	</summary>
+    function SubscribeOn(Scheduler: IScheduler): TObservable<T>;
 
     (* Операции над последовательностями *)
 
@@ -661,8 +667,12 @@ begin
 end;
 
 class function TObservable<T>.From(Other: IObservable<T>): TObservable<T>;
+var
+  Impl: TPublishSubject<T>;
 begin
-  Result.Impl := Other;
+  Impl := TPublishSubject<T>.Create;
+  Impl.Merge(Other);
+  Result.Impl := Impl;
 end;
 
 function TObservable<T>.GetFlatIterable: IFlatMapIterableObservable<T>;
@@ -813,9 +823,10 @@ begin
   Result := TScanObservable<CTX, T>.Create(GetImpl, Initial, Scan);
 end;
 
-procedure TObservable<T>.ScheduleOn(Scheduler: IScheduler);
+function TObservable<T>.ScheduleOn(Scheduler: IScheduler): TObservable<T>;
 begin
-  GetImpl.ScheduleOn(Scheduler)
+  Result := TObservable<T>.From(Self.GetImpl);
+  Result.Impl.ScheduleOn(Scheduler)
 end;
 
 procedure TObservable<T>.SetName(const Value: string);
@@ -876,6 +887,12 @@ end;
 function TObservable<T>.Subscribe(Subscriber: ISubscriber<T>): ISubscription;
 begin
   Result := GetImpl.Subscribe(Subscriber);
+end;
+
+function TObservable<T>.SubscribeOn(Scheduler: IScheduler): TObservable<T>;
+begin
+  Result := TObservable<T>.From(Self.GetImpl);
+  Result.Impl.SubscribeOn(Scheduler)
 end;
 
 function TObservable<T>.Take(Count: Integer): TObservable<T>;

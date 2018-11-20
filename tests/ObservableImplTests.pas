@@ -137,6 +137,7 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
+    procedure ContractLockIssue;
     procedure MainThreadScheduler1;
     procedure MainThreadScheduler2;
     procedure SeparateThreadScheduler;
@@ -2011,6 +2012,58 @@ end;
 
 { TSchedulersTests }
 
+procedure TSchedulersTests.ContractLockIssue;
+var
+  O: TObservable<Integer>;
+  OnNext: TOnNext<Integer>;
+  OnCompleted: TOnCompleted;
+  OnSubscribe: TOnSubscribe<Integer>;
+  ThreadID: LongWord;
+  Event: TEvent;
+begin
+
+  OnNext := procedure(const Data: Integer)
+  begin
+    ThreadID := TThread.CurrentThread.ThreadID;
+  end;
+
+  OnCompleted := procedure
+  begin
+    Event.SetEvent;
+  end;
+
+  OnSubscribe := procedure(O: IObserver<Integer>)
+  var
+    Th: TThread;
+  begin
+    Th := TThread.CreateAnonymousThread(procedure
+      begin
+        O.OnNext(1);
+        O.OnCompleted;
+      end);
+    Th.Start;
+    Sleep(1000);
+  end;
+
+  Event := TEvent.Create(nil, False, False, '');
+  ThreadID := 0;
+
+  try
+
+    O := TObservable<Integer>.Create(OnSubscribe);
+
+    O := O.ScheduleOn(StdSchedulers.CreateMainThreadScheduler);
+    O.Subscribe(OnNext, OnCompleted);
+
+    Check(Event.WaitFor(5000) = wrSignaled, 'event wait timeout');
+    Check(ThreadID <> TThread.CurrentThread.ThreadID);
+
+  finally
+    Event.Free
+  end
+
+end;
+
 procedure TSchedulersTests.MainThreadScheduler1;
 var
   O: TObservable<Integer>;
@@ -2055,15 +2108,15 @@ begin
   Check(IsEqual(FStream, [Expected, Expected, 'completed:' + IntToStr(ThreadID)]));
 
   FStream.Clear;
-  O.ScheduleOn(StdSchedulers.CreateMainThreadScheduler);
+  O := O.ScheduleOn(StdSchedulers.CreateMainThreadScheduler);
   O.Subscribe(OnNext, OnCompleted);
 
   Expected := 'next:' + IntToStr(MainThreadID);
 
+  {CheckSynchronize(100);
   CheckSynchronize(100);
   CheckSynchronize(100);
-  CheckSynchronize(100);
-  CheckSynchronize(100);
+  CheckSynchronize(100);}
 
   Check(IsEqual(FStream, [Expected, Expected, 'completed:' + IntToStr(MainThreadID)]));
 
@@ -2207,15 +2260,10 @@ begin
   O.ScheduleOn(StdSchedulers.CreateSeparateThreadScheduler);
   O.Subscribe(OnNext, OnCompleted);
 
-  Th := TThread.CreateAnonymousThread(
-  procedure
-  begin
-    O.OnNext(1);
-    O.OnNext(2);
-    O.OnCompleted;
-    O.OnNext(3);
-  end);
-  Th.Start;
+  O.OnNext(1);
+  O.OnNext(2);
+  O.OnCompleted;
+  O.OnNext(3);
   Sleep(5000);
 
   CheckFalse(ThreadID = MainThreadID, 'thread problem');
